@@ -115,7 +115,7 @@ describe('base.utils', () => {
       expect(result.html).not.toContain(':rocket:');
     });
 
-    it('should parse published date as Date object (not string)', async () => {
+    it('should convert published date to ISO string', async () => {
       const markdown = '---\ntitle: Test\npublished: 2024-06-15\n---\nContent';
 
       const result = await markdownToEntry<EntryBase>(
@@ -125,11 +125,9 @@ describe('base.utils', () => {
         '/tmp'
       );
 
-      // js-yaml parses unquoted dates as Date objects
-      expect(result.meta.published).toBeInstanceOf(Date);
-      expect(result.meta.published.getFullYear()).toBe(2024);
-      expect(result.meta.published.getMonth()).toBe(5); // June is 5 (0-indexed)
-      expect(result.meta.published.getDate()).toBe(15);
+      // js-yaml parses unquoted dates as Date objects, but we convert to ISO string
+      expect(typeof result.meta.published).toBe('string');
+      expect(result.meta.published).toMatch(/^2024-06-15/);
     });
 
     it('should set slug from folder name', async () => {
@@ -160,20 +158,11 @@ describe('base.utils', () => {
     /**
      * SORTING BEHAVIOR DOCUMENTATION:
      * --------------------------------
-     * getSortKey uses `+entry.meta.published` to convert dates to timestamps.
-     *
-     * IMPORTANT: js-yaml parses unquoted dates (e.g., `published: 2024-01-15`)
-     * as JavaScript Date objects, NOT strings!
-     *
-     * - `+DateObject` = timestamp (number) -> sorts correctly
-     * - `+"2024-01-15"` = NaN (if it were a string)
-     *
-     * Our YAML files use unquoted dates, so js-yaml gives us Date objects,
-     * and the sorting works correctly. This is NOT a bug.
+     * Dates are converted to ISO 8601 strings in markdownToEntry().
+     * ISO strings sort correctly in lexicographic order (e.g., "2024-01-15" < "2025-01-15").
      */
 
     it('should sort entries by published date (newest first)', async () => {
-      // js-yaml parses unquoted dates as Date objects, so sorting works
       const entries = [
         { dir: 'middle-post', date: '2024-06-15' },
         { dir: 'oldest-post', date: '2023-01-01' },

@@ -1,13 +1,14 @@
 export interface EntryMetaBase {
   title: string;
   /**
-   * IMPORTANT: js-yaml parses unquoted YAML dates as JavaScript Date objects!
-   * In YAML: `published: 2024-01-15` (unquoted) → Date object
-   * In YAML: `published: "2024-01-15"` (quoted) → string
-   * Our blog posts use unquoted dates, so this is a Date.
+   * ISO 8601 date string (e.g., "2024-01-15T00:00:00.000Z").
+   *
+   * Note: js-yaml parses unquoted YAML dates as Date objects,
+   * but we convert them to ISO strings in markdownToEntry()
+   * so the JSON output contains strings (not Date objects).
    */
-  published: Date;
-  lastModified?: Date;
+  published: string;
+  lastModified?: string;
   hidden?: boolean;
   sticky?: boolean;
 }

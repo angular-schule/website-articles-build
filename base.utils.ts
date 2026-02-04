@@ -48,11 +48,8 @@ export async function copyEntriesToDist<T extends { slug: string }>(
 
 /** Simple way to sort things: create a sort key that can be easily sorted */
 function getSortKey(entry: EntryBase): string {
-  // js-yaml parses unquoted dates (e.g., `published: 2024-01-15`) as Date objects.
-  // The unary + converts Date to timestamp (number), which sorts correctly.
-  // Note: If the date were a string, +string would return NaN, but our YAML
-  // files use unquoted dates, so this works correctly.
-  return (entry.meta.sticky ? 'Z' : 'A') + '---' + (+entry.meta.published) + '---' + entry.slug;
+  // ISO 8601 strings sort correctly in lexicographic order
+  return (entry.meta.sticky ? 'Z' : 'A') + '---' + entry.meta.published + '---' + entry.slug;
 }
 
 
@@ -78,6 +75,15 @@ export async function markdownToEntry<T extends EntryBase>(
   const parsedJekyllMarkdown = parser.parse(markdown);
 
   const meta = parsedJekyllMarkdown.parsedYaml || {};
+
+  // Convert Date objects from js-yaml to ISO strings
+  // js-yaml parses unquoted dates (e.g., `published: 2024-01-15`) as Date objects
+  if (meta.published instanceof Date) {
+    meta.published = meta.published.toISOString();
+  }
+  if (meta.lastModified instanceof Date) {
+    meta.lastModified = meta.lastModified.toISOString();
+  }
 
   // Transform header from string (YAML) to object with dimensions
   if (meta.header) {
