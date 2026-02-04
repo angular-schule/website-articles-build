@@ -4,6 +4,8 @@ import { markedHighlight } from 'marked-highlight';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
 import hljs from 'highlight.js';
 
+export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
+
 /**
  * ============================================================================
  * MODIFIED PARSER - Based on bouzuya/jekyll-markdown-parser
@@ -74,7 +76,7 @@ export class JekyllMarkdownParser {
     return url.startsWith('https://') || url.startsWith('http://') ||
            url.startsWith('data:') || url.startsWith('//') ||
            url.startsWith('assets/') || url.startsWith('/') ||
-           url.startsWith('%%MARKDOWN_BASE_URL%%');
+           url.startsWith(MARKDOWN_BASE_URL_PLACEHOLDER);
   }
 
   /**

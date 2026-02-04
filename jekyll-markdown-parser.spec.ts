@@ -3,7 +3,7 @@ import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
 import hljs from 'highlight.js';
-import { JekyllMarkdownParser } from './jekyll-markdown-parser';
+import { JekyllMarkdownParser, MARKDOWN_BASE_URL_PLACEHOLDER } from './jekyll-markdown-parser';
 
 /**
  * Create a Marked instance with the same extensions as JekyllMarkdownParser.
@@ -1001,6 +1001,46 @@ This is after a horizontal rule.
 
         expect(result.parsedYaml.title).toBe('Test');
         expect(result.html).toContain('Hello');
+      });
+    });
+
+    describe('MARKDOWN_BASE_URL_PLACEHOLDER handling', () => {
+      it('should NOT double-prefix URLs that already contain the placeholder', () => {
+        // This is a REGRESSION TEST for a critical bug!
+        // When baseUrl is %%MARKDOWN_BASE_URL%%/blog/xxx/:
+        // 1. _imageRenderer transforms ![](image.png) → src="%%MARKDOWN_BASE_URL%%/blog/xxx/image.png"
+        // 2. _transformRelativeImagePaths runs on the ENTIRE HTML output
+        // 3. It must NOT add baseUrl again to URLs that already start with the placeholder
+        const placeholderBaseUrl = `${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/`;
+        const input = `---
+title: Test
+---
+
+![Screenshot](screenshot.png)
+`;
+        const parser = new JekyllMarkdownParser(placeholderBaseUrl);
+        const result = parser.parse(input);
+
+        // Should have exactly ONE placeholder prefix, not two!
+        expect(result.html).toContain(`src="${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/screenshot.png"`);
+        expect(result.html).not.toContain(`${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/${MARKDOWN_BASE_URL_PLACEHOLDER}`);
+      });
+
+      it('should NOT double-prefix raw HTML images with placeholder in src', () => {
+        // Edge case: What if someone manually writes the placeholder in HTML?
+        const placeholderBaseUrl = `${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/`;
+        const input = `---
+title: Test
+---
+
+<img src="${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/other-post/image.png" alt="Already prefixed">
+`;
+        const parser = new JekyllMarkdownParser(placeholderBaseUrl);
+        const result = parser.parse(input);
+
+        // Should NOT add another prefix
+        expect(result.html).toContain(`src="${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/other-post/image.png"`);
+        expect(result.html).not.toContain(`${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/${MARKDOWN_BASE_URL_PLACEHOLDER}`);
       });
     });
 
