@@ -73,7 +73,8 @@ export class JekyllMarkdownParser {
   private _isAbsoluteUrl(url: string): boolean {
     return url.startsWith('https://') || url.startsWith('http://') ||
            url.startsWith('data:') || url.startsWith('//') ||
-           url.startsWith('assets/') || url.startsWith('/');
+           url.startsWith('assets/') || url.startsWith('/') ||
+           url.startsWith('%%MARKDOWN_BASE_URL%%');
   }
 
   /**
