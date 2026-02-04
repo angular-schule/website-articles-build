@@ -1,8 +1,9 @@
 import { existsSync } from 'fs';
-import { mkdirp } from 'fs-extra';
+import { mkdirp, writeJson } from 'fs-extra';
 
 import { MaterialEntry } from './material.types';
 import { copyEntriesToDist, getEntryList } from './base.utils';
+import { makeLightList } from './list.utils';
 
 const MATERIAL_FOLDER = '../material';
 const DIST_FOLDER = './dist';
@@ -14,10 +15,13 @@ async function build(): Promise<void> {
     return;
   }
 
-  await mkdirp(DIST_FOLDER + '/material');
+  const materialDist = DIST_FOLDER + '/material';
+  await mkdirp(materialDist);
 
   const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, '%%MARKDOWN_BASE_URL%%/material/');
-  await copyEntriesToDist(materialList, MATERIAL_FOLDER, DIST_FOLDER + '/material');
+  const materialListLight = makeLightList(materialList);
+  await writeJson(materialDist + '/materiallist.json', materialListLight);
+  await copyEntriesToDist(materialList, MATERIAL_FOLDER, materialDist);
 }
 
 build().catch((error) => {

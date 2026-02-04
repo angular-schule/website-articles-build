@@ -1,40 +1,7 @@
 import { BlogEntry, BlogEntryFull } from './blog.types';
+import { extractFirstBigParagraph } from './list.utils';
 
-/**
- * Strip all HTML tags from a string to get plain text.
- */
-function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, '');
-}
-
-/**
- * Extract the first "big" paragraph from HTML content.
- * A paragraph is considered "big" if its TEXT content (not HTML) is > 100 chars.
- * Falls back to first paragraph if no big paragraph exists.
- */
-export function extractFirstBigParagraph(html: string): string {
-  if (!html) {
-    return '';
-  }
-
-  const withoutImageTags = html.replace(/<img[^>]*>/g, '');
-
-  // [\s\S] --> as an alternative for /.../s modifier
-  const matches = withoutImageTags.match(/<p[^>]*>([\s\S]*?)<\/p>/mg);
-
-  if (!matches) {
-    return '';
-  }
-
-  // Find first paragraph where TEXT content (not HTML) is > 100 chars
-  // Fall back to first paragraph if none is big enough
-  const bigParagraph = matches.find(m => m && stripHtmlTags(m).length > 100);
-  const paragraph = bigParagraph || matches[0] || '';
-  // strip anchor tags but retain link text
-  const result = paragraph.replace(/<a\s.*?>(.*?)<\/a>/g, '$1');
-
-  return result;
-}
+export { extractFirstBigParagraph };
 
 
 
