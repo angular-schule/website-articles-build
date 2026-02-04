@@ -13,7 +13,7 @@ async function build(): Promise<void> {
 
   const entryList = await getEntryList<BlogEntryFull>(BLOG_POSTS_FOLDER, '%%MARKDOWN_BASE_URL%%/blog/');
   const blogListLight = makeLightBlogList(entryList);
-  await writeJson(blogDist + '/bloglist.json', blogListLight);
+  await writeJson(blogDist + '/list.json', blogListLight);
   await copyEntriesToDist(entryList, BLOG_POSTS_FOLDER, blogDist);
 }
 

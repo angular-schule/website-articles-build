@@ -20,7 +20,7 @@ async function build(): Promise<void> {
 
   const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, '%%MARKDOWN_BASE_URL%%/material/');
   const materialListLight = makeLightList(materialList);
-  await writeJson(materialDist + '/materiallist.json', materialListLight);
+  await writeJson(materialDist + '/list.json', materialListLight);
   await copyEntriesToDist(materialList, MATERIAL_FOLDER, materialDist);
 }
 
