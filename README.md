@@ -2,17 +2,14 @@
 
 Shared build scripts for processing Markdown blog entries into JSON.
 
-Used as a git subtree in:
+Used as a git submodule in:
 - [angular-buch/website-articles](https://github.com/angular-buch/website-articles)
 - [angular-schule/website-articles](https://github.com/angular-schule/website-articles)
 
 ## Usage
 
 ```bash
-# Set the base URL for generated links
-export MARKDOWN_BASE_URL=https://your-domain.com/
-
-# Run the build
+npm install
 npm run build
 ```
 
@@ -26,24 +23,13 @@ npm run build
 
 **Note:** `build:material` gracefully exits if no `../material/` folder exists.
 
-## Configuration
+## URL Placeholder
 
-The only configuration is the `MARKDOWN_BASE_URL` environment variable. All paths are hardcoded:
-- Blog source: `../blog/`
-- Material source: `../material/`
-- Output: `./dist/`
+Generated URLs use `%%MARKDOWN_BASE_URL%%` as a placeholder:
+- `%%MARKDOWN_BASE_URL%%/blog/2024-post/image.png`
+- `%%MARKDOWN_BASE_URL%%/material/chapter-1/diagram.svg`
 
-## Syncing Changes
-
-**Push changes from a consumer repo:**
-```bash
-git subtree push --prefix=build git@github.com:angular-schule/website-articles-build.git main
-```
-
-**Pull changes into a consumer repo:**
-```bash
-git subtree pull --prefix=build git@github.com:angular-schule/website-articles-build.git main --squash
-```
+The consuming website replaces this placeholder with the actual base URL at runtime.
 
 ## Tests
 

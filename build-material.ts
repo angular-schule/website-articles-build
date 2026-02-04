@@ -4,7 +4,6 @@ import { mkdirp } from 'fs-extra';
 import { MaterialEntry } from './material.types';
 import { copyEntriesToDist, getEntryList } from './base.utils';
 
-const MARKDOWN_BASE_URL = process.env.MARKDOWN_BASE_URL;
 const MATERIAL_FOLDER = '../material';
 const DIST_FOLDER = './dist';
 
@@ -15,13 +14,9 @@ async function build(): Promise<void> {
     return;
   }
 
-  if (!MARKDOWN_BASE_URL) {
-    throw new Error('MARKDOWN_BASE_URL environment variable is required');
-  }
-
   await mkdirp(DIST_FOLDER + '/material');
 
-  const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, MARKDOWN_BASE_URL + 'material/');
+  const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, '%%MARKDOWN_BASE_URL%%/material/');
   await copyEntriesToDist(materialList, MATERIAL_FOLDER, DIST_FOLDER + '/material');
 }
 
