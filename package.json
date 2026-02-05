@@ -6,7 +6,8 @@
     "build": "tsx build.ts",
     "watch": "nodemon --watch ../blog --watch ../material -e md,jpg,png,svg --exec 'npm run build'",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "author": "",
   "license": "ISC",
