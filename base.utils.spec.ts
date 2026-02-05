@@ -96,6 +96,18 @@ describe('base.utils', () => {
         .rejects
         .toThrow();
     });
+
+    it('should throw for invalid image file', async () => {
+      // Create a text file that is not a valid image
+      const invalidImage = '/tmp/test-invalid-image-' + Date.now() + '.png';
+      await fs.writeFile(invalidImage, 'this is not an image');
+
+      await expect(getImageDimensions(invalidImage))
+        .rejects
+        .toThrow();
+
+      await fs.rm(invalidImage);
+    });
   });
 
   describe('copyEntriesToDist', () => {

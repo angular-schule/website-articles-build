@@ -5,7 +5,7 @@ import { readdir, readFile } from 'fs/promises';
 import { copy, remove, writeJson, mkdirp } from 'fs-extra';
 
 import { JekyllMarkdownParser } from './jekyll-markdown-parser';
-import { EntryBase, ImageDimensionsRaw } from './base.types';
+import { EntryBase, ImageDimensions } from './base.types';
 
 const README_FILE = 'README.md';
 const ENTRY_FILE = 'entry.json';
@@ -24,9 +24,12 @@ export async function readMarkdownFile(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8');
 }
 
-/** Get width and height of an image (raw, may be undefined for some formats) */
-export async function getImageDimensions(imagePath: string): Promise<ImageDimensionsRaw> {
+/** Get width and height of an image. Throws if dimensions cannot be determined. */
+export async function getImageDimensions(imagePath: string): Promise<ImageDimensions> {
   const { width, height } = await imageSizeFromFile(imagePath);
+  if (width === undefined || height === undefined) {
+    throw new Error(`Could not determine dimensions for image: ${imagePath}`);
+  }
   return { width, height };
 }
 
@@ -94,9 +97,6 @@ export async function markdownToEntry<T extends EntryBase>(
     const url = meta.header;  // Original string from YAML
     const imagePath = path.join(blogPostsFolder, folder, meta.header);
     const { width, height } = await getImageDimensions(imagePath);
-    if (width === undefined || height === undefined) {
-      throw new Error(`Could not determine dimensions for header image: ${imagePath}`);
-    }
     meta.header = { url, width, height };
   }
 
