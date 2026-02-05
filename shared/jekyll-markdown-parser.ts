@@ -162,14 +162,18 @@ export class JekyllMarkdownParser {
     return this._transformRelativeImagePaths(html);
   }
 
-  private parseYaml(yaml: string): Record<string, unknown> | undefined {
-    return load(yaml) as Record<string, unknown> | undefined;
+  private parseYaml(yaml: string): Record<string, unknown> {
+    const parsed = load(yaml) as Record<string, unknown> | undefined;
+    if (!parsed) {
+      throw new Error('YAML frontmatter is required but was empty or invalid');
+    }
+    return parsed;
   }
 
   public parse(jekyllMarkdown: string): {
     html: string;
     yaml: string;
-    parsedYaml: Record<string, unknown> | undefined;
+    parsedYaml: Record<string, unknown>;
     markdown: string;
   } {
     const { yaml, markdown } = this.separate(jekyllMarkdown);

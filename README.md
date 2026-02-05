@@ -2,7 +2,7 @@
 
 Shared build scripts for processing Markdown blog entries into JSON.
 
-Used as a git submodule in:
+Used as a git subtree in:
 - [angular-buch/website-articles](https://github.com/angular-buch/website-articles)
 - [angular-schule/website-articles](https://github.com/angular-schule/website-articles)
 
@@ -13,15 +13,31 @@ npm install
 npm run build
 ```
 
-## Build Scripts
+## Scripts
 
-| Script           | Description                                                      |
-|------------------|------------------------------------------------------------------|
-| `build:init`     | Clears `dist/`                                                   |
-| `build:blog`     | Builds blog entries from `../blog/` → `dist/blog/`               |
-| `build:material` | Builds material entries from `../material/` → `dist/material/`   |
+| Script       | Description                          |
+|--------------|--------------------------------------|
+| `build`      | Build blog and material entries      |
+| `test`       | Run tests                            |
+| `test:watch` | Run tests in watch mode              |
+| `typecheck`  | TypeScript type checking             |
+| `watch`      | Watch mode for development           |
 
-**Note:** `build:material` gracefully exits if no `../material/` folder exists.
+## Folder Structure
+
+```
+├── build.ts                 # Main entry point
+├── blog/
+│   ├── blog.types.ts        # Blog-specific types
+│   └── blog.utils.ts        # Blog list utilities
+├── material/
+│   └── material.types.ts    # Material-specific types
+└── shared/
+    ├── base.types.ts        # Shared base types
+    ├── base.utils.ts        # File/folder utilities
+    ├── list.utils.ts        # List extraction utilities
+    └── jekyll-markdown-parser.ts  # Markdown parser
+```
 
 ## URL Placeholder
 
@@ -31,8 +47,12 @@ Generated URLs use `%%MARKDOWN_BASE_URL%%` as a placeholder:
 
 The consuming website replaces this placeholder with the actual base URL at runtime.
 
-## Tests
+## Input/Output
 
-```bash
-npm test
-```
+**Input:** `../blog/` and `../material/` folders with Markdown READMEs
+
+**Output:** `./dist/` folder with:
+- `dist/blog/list.json` - Light blog list for overview
+- `dist/blog/{slug}/entry.json` - Full blog entry
+- `dist/material/list.json` - Light material list
+- `dist/material/{slug}/entry.json` - Full material entry

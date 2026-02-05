@@ -1,4 +1,4 @@
-import { ImageDimensions } from "./base.types";
+import { ImageDimensions } from "../shared/base.types";
 
 /**
  * Blog entry metadata for the LIGHT list (list.json).

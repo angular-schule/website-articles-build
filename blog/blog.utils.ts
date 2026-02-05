@@ -1,5 +1,5 @@
 import { BlogEntry, BlogEntryFull } from './blog.types';
-import { extractFirstBigParagraph } from './list.utils';
+import { extractFirstBigParagraph } from '../shared/list.utils';
 
 export function makeLightBlogList(fullList: BlogEntryFull[]): BlogEntry[] {
   return fullList

@@ -15,7 +15,9 @@ describe('makeLightBlogList', () => {
         published: '2024-01-01T00:00:00.000Z',
         language: 'en',
         header: { url: 'header.jpg', width: 800, height: 400 },
-        'darken-header': false,
+        hidden: false,
+        sticky: false,
+        darkenHeader: false,
         ...overrides.meta,
       },
       ...overrides,
@@ -68,7 +70,7 @@ describe('makeLightBlogList', () => {
           language: 'de',
           header: { url: 'img.jpg', width: 100, height: 50 },
           hidden: false,
-          'darken-header': true,
+          darkenHeader: true,
           keywords: ['angular', 'test'],
           bio: 'Some bio',
           sticky: true,
@@ -88,11 +90,11 @@ describe('makeLightBlogList', () => {
     expect(meta.header).toEqual({ url: 'img.jpg', width: 100, height: 50 });
 
     // These should NOT be included in light version
-    expect((meta as any).hidden).toBeUndefined();
-    expect((meta as any)['darken-header']).toBeUndefined();
-    expect((meta as any).keywords).toBeUndefined();
-    expect((meta as any).bio).toBeUndefined();
-    expect((meta as any).sticky).toBeUndefined();
+    expect(Object.hasOwn(meta, 'hidden')).toBe(false);
+    expect(Object.hasOwn(meta, 'darkenHeader')).toBe(false);
+    expect(Object.hasOwn(meta, 'keywords')).toBe(false);
+    expect(Object.hasOwn(meta, 'bio')).toBe(false);
+    expect(Object.hasOwn(meta, 'sticky')).toBe(false);
   });
 
   it('should include author2 and mail2 if present', () => {

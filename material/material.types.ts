@@ -1,4 +1,4 @@
-import { EntryBase, EntryMetaBase } from "./base.types";
+import { EntryBase, EntryMetaBase } from "../shared/base.types";
 
 /**
  * Material entry metadata.

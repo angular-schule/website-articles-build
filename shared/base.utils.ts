@@ -81,7 +81,7 @@ export async function markdownToEntry<T extends EntryBase>(
   const parser = new JekyllMarkdownParser(baseUrl + folder + '/');
   const parsedJekyllMarkdown = parser.parse(markdown);
 
-  const meta = parsedJekyllMarkdown.parsedYaml ?? {};
+  const meta: Record<string, unknown> = parsedJekyllMarkdown.parsedYaml;
 
   // Convert Date objects from js-yaml to ISO strings
   // js-yaml parses unquoted dates (e.g., `published: 2024-01-15`) as Date objects
@@ -93,18 +93,19 @@ export async function markdownToEntry<T extends EntryBase>(
   }
 
   // Transform header from string (YAML) to object with dimensions
-  if (meta.header) {
-    const url = meta.header;  // Original string from YAML
+  if (typeof meta.header === 'string') {
+    const url = meta.header;
     const imagePath = path.join(blogPostsFolder, folder, meta.header);
     const { width, height } = await getImageDimensions(imagePath);
     meta.header = { url, width, height };
   }
 
+  // Type assertion: we trust that YAML contains all required properties for T
   return {
     slug: folder,
     html: emoji.emojify(parsedJekyllMarkdown.html),
     meta
-  } as T;
+  } as unknown as T;
 }
 
 /** Read metadata and contents for all entries as list */

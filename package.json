@@ -1,7 +1,6 @@
 {
-  "name": "website-articles",
+  "name": "website-articles-build",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
     "build": "tsx build.ts",
     "watch": "nodemon --watch ../blog --watch ../material -e md,jpg,png,svg --exec 'npm run build'",

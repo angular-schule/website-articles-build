@@ -393,63 +393,63 @@ describe('JekyllMarkdownParser', () => {
      */
     it('should produce expected output for comprehensive blog post', () => {
       const parser = new JekyllMarkdownParser(baseUrl);
-      const result = parser.parse(COMPREHENSIVE_BLOG_POST);
+      const { parsedYaml, html } = parser.parse(COMPREHENSIVE_BLOG_POST);
 
       // === YAML Frontmatter ===
-      expect(result.parsedYaml.title).toBe('Comprehensive Test Post');
-      expect(result.parsedYaml.author).toBe('Test Author');
+      expect(parsedYaml.title).toBe('Comprehensive Test Post');
+      expect(parsedYaml.author).toBe('Test Author');
 
       // === Headings with IDs (CRITICAL - used for anchor links!) ===
-      expect(result.html).toContain('<h1 id="main-heading">Main Heading</h1>');
-      expect(result.html).toContain('<h2 id="code-examples">Code Examples</h2>');
-      expect(result.html).toContain('<h3 id="html-template">HTML Template</h3>');
-      expect(result.html).toContain('<h2 id="images">Images</h2>');
-      expect(result.html).toContain('<h2 id="links">Links</h2>');
-      expect(result.html).toContain('<h2 id="blockquotes">Blockquotes</h2>');
-      expect(result.html).toContain('<h2 id="lists">Lists</h2>');
-      expect(result.html).toContain('<h2 id="raw-html">Raw HTML</h2>');
-      expect(result.html).toContain('<h2 id="fazit">Fazit</h2>');
+      expect(html).toContain('<h1 id="main-heading">Main Heading</h1>');
+      expect(html).toContain('<h2 id="code-examples">Code Examples</h2>');
+      expect(html).toContain('<h3 id="html-template">HTML Template</h3>');
+      expect(html).toContain('<h2 id="images">Images</h2>');
+      expect(html).toContain('<h2 id="links">Links</h2>');
+      expect(html).toContain('<h2 id="blockquotes">Blockquotes</h2>');
+      expect(html).toContain('<h2 id="lists">Lists</h2>');
+      expect(html).toContain('<h2 id="raw-html">Raw HTML</h2>');
+      expect(html).toContain('<h2 id="fazit">Fazit</h2>');
 
       // === Bold and Italic ===
-      expect(result.html).toContain('<strong>bold text</strong>');
-      expect(result.html).toContain('<em>italic text</em>');
+      expect(html).toContain('<strong>bold text</strong>');
+      expect(html).toContain('<em>italic text</em>');
 
       // === Inline code ===
-      expect(result.html).toContain('<code>code</code>');
+      expect(html).toContain('<code>code</code>');
 
       // === Code blocks with syntax highlighting ===
-      expect(result.html).toContain('<pre><code class="language-typescript">');
-      expect(result.html).toContain('<pre><code class="language-html">');
-      expect(result.html).toContain('hljs-'); // highlight.js classes
+      expect(html).toContain('<pre><code class="language-typescript">');
+      expect(html).toContain('<pre><code class="language-html">');
+      expect(html).toContain('hljs-'); // highlight.js classes
 
       // === Images with URL transformation ===
-      expect(result.html).toContain(`src="${baseUrl}screenshot.png"`);
-      expect(result.html).toContain(`src="${baseUrl}logo.png"`);
-      expect(result.html).toContain('title="Company Logo"');
-      expect(result.html).toContain('src="https://example.com/external.png"'); // external unchanged
+      expect(html).toContain(`src="${baseUrl}screenshot.png"`);
+      expect(html).toContain(`src="${baseUrl}logo.png"`);
+      expect(html).toContain('title="Company Logo"');
+      expect(html).toContain('src="https://example.com/external.png"'); // external unchanged
 
       // === Links ===
-      expect(result.html).toContain('<a href="https://angular-buch.com/docs">our documentation</a>');
-      expect(result.html).toContain('<a href="/blog/2023-01-other-post">Another post</a>');
+      expect(html).toContain('<a href="https://angular-buch.com/docs">our documentation</a>');
+      expect(html).toContain('<a href="/blog/2023-01-other-post">Another post</a>');
 
       // === Blockquotes ===
-      expect(result.html).toContain('<blockquote>');
-      expect(result.html).toContain('</blockquote>');
+      expect(html).toContain('<blockquote>');
+      expect(html).toContain('</blockquote>');
 
       // === Lists ===
-      expect(result.html).toContain('<ul>');
-      expect(result.html).toContain('<li>First item</li>');
-      expect(result.html).toContain('<li>Second item with <code>code</code></li>');
+      expect(html).toContain('<ul>');
+      expect(html).toContain('<li>First item</li>');
+      expect(html).toContain('<li>Second item with <code>code</code></li>');
 
       // === Raw HTML pass-through ===
-      expect(result.html).toContain('<iframe src="https://stackblitz.com/edit/angular"');
-      expect(result.html).toContain('<div class="custom-box">');
-      expect(result.html).toContain('<!-- This is an HTML comment -->');
+      expect(html).toContain('<iframe src="https://stackblitz.com/edit/angular"');
+      expect(html).toContain('<div class="custom-box">');
+      expect(html).toContain('<!-- This is an HTML comment -->');
 
       // === Raw HTML img with URL transformation ===
-      expect(result.html).toContain(`src="${baseUrl}photo.jpg"`);
-      expect(result.html).toContain('class="rounded"');
-      expect(result.html).toContain('loading="lazy"');
+      expect(html).toContain(`src="${baseUrl}photo.jpg"`);
+      expect(html).toContain('class="rounded"');
+      expect(html).toContain('loading="lazy"');
     });
 
     /**
@@ -483,24 +483,20 @@ author: John Doe
 This is a test.
 `;
       const parser = new JekyllMarkdownParser(baseUrl);
-      const result = parser.parse(input);
+      const { parsedYaml, html, markdown } = parser.parse(input);
 
-      expect(result.parsedYaml.title).toBe('Test Post');
-      expect(result.parsedYaml.author).toBe('John Doe');
-      expect(result.html).toContain('<h1 id="hello-world">Hello World</h1>');
-      expect(result.html).toContain('<p>This is a test.</p>');
-      expect(result.markdown).toBe('\n# Hello World\n\nThis is a test.\n');
+      expect(parsedYaml.title).toBe('Test Post');
+      expect(parsedYaml.author).toBe('John Doe');
+      expect(html).toContain('<h1 id="hello-world">Hello World</h1>');
+      expect(html).toContain('<p>This is a test.</p>');
+      expect(markdown).toBe('\n# Hello World\n\nThis is a test.\n');
     });
 
-    it('should handle markdown without frontmatter', () => {
+    it('should throw for markdown without frontmatter', () => {
       const input = '# Just Markdown\n\nNo frontmatter here.';
       const parser = new JekyllMarkdownParser(baseUrl);
-      const result = parser.parse(input);
 
-      expect(result.parsedYaml).toBeUndefined();
-      expect(result.html).toContain('<h1 id="just-markdown">Just Markdown</h1>');
-      expect(result.html).toContain('<p>No frontmatter here.</p>');
-      expect(result.markdown).toBe(input);
+      expect(() => parser.parse(input)).toThrow('YAML frontmatter is required');
     });
   });
 
@@ -958,21 +954,18 @@ title: Test
       it('should handle Windows line endings (CRLF)', () => {
         const input = '---\r\ntitle: Test\r\n---\r\n\r\n# Hello';
         const parser = new JekyllMarkdownParser(baseUrl);
-        const result = parser.parse(input);
+        const { parsedYaml, html } = parser.parse(input);
 
-        expect(result.parsedYaml.title).toBe('Test');
-        expect(result.html).toContain('<h1');
-        expect(result.html).toContain('Hello');
+        expect(parsedYaml.title).toBe('Test');
+        expect(html).toContain('<h1');
+        expect(html).toContain('Hello');
       });
 
-      it('should handle only one separator (no valid frontmatter)', () => {
+      it('should throw for only one separator (no valid frontmatter)', () => {
         const input = '---\nThis is not YAML, just a horizontal rule\n\n# Hello';
         const parser = new JekyllMarkdownParser(baseUrl);
-        const result = parser.parse(input);
 
-        // Should treat as plain markdown, no YAML parsed
-        expect(result.parsedYaml).toBeUndefined();
-        expect(result.markdown).toBe(input);
+        expect(() => parser.parse(input)).toThrow('YAML frontmatter is required');
       });
 
       it('should handle --- inside markdown content (after frontmatter)', () => {

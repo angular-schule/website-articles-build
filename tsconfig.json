@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "lib": ["es2023"],
-    "module": "commonjs",
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "target": "es2023",
     "strict": true,
     "esModuleInterop": true,

@@ -2,12 +2,12 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import { mkdirp, remove, writeJson } from 'fs-extra';
 
-import { BlogEntryFull } from './blog.types';
-import { MaterialEntry } from './material.types';
-import { copyEntriesToDist, getEntryList } from './base.utils';
-import { makeLightBlogList } from './blog.utils';
-import { makeLightList } from './list.utils';
-import { MARKDOWN_BASE_URL_PLACEHOLDER } from './jekyll-markdown-parser';
+import { BlogEntryFull } from './blog/blog.types';
+import { MaterialEntry } from './material/material.types';
+import { copyEntriesToDist, getEntryList } from './shared/base.utils';
+import { makeLightBlogList } from './blog/blog.utils';
+import { makeLightList } from './shared/list.utils';
+import { MARKDOWN_BASE_URL_PLACEHOLDER } from './shared/jekyll-markdown-parser';
 
 const DIST_FOLDER = './dist';
 const BLOG_FOLDER = '../blog';
