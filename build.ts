@@ -9,7 +9,7 @@ import { makeLightBlogList } from './blog/blog.utils';
 import { makeLightList } from './shared/list.utils';
 import { MARKDOWN_BASE_URL_PLACEHOLDER } from './shared/jekyll-markdown-parser';
 
-const DIST_FOLDER = './dist';
+const DIST_FOLDER = '../dist';
 const BLOG_FOLDER = '../blog';
 const MATERIAL_FOLDER = '../material';
 const LIST_FILE = 'list.json';
