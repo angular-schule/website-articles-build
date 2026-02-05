@@ -1001,8 +1001,8 @@ This is after a horizontal rule.
       it('should NOT double-prefix URLs that already contain the placeholder', () => {
         // This is a REGRESSION TEST for a critical bug!
         // When baseUrl is %%MARKDOWN_BASE_URL%%/blog/xxx/:
-        // 1. _imageRenderer transforms ![](image.png) → src="%%MARKDOWN_BASE_URL%%/blog/xxx/image.png"
-        // 2. _transformRelativeImagePaths runs on the ENTIRE HTML output
+        // 1. imageRenderer transforms ![](image.png) → src="%%MARKDOWN_BASE_URL%%/blog/xxx/image.png"
+        // 2. transformRelativeImagePaths runs on the ENTIRE HTML output
         // 3. It must NOT add baseUrl again to URLs that already start with the placeholder
         const placeholderBaseUrl = `${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/`;
         const input = `---
