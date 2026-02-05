@@ -66,7 +66,7 @@ export <span class="hljs-class"><span class="hljs-keyword">class</span> <span cl
 &lt;/<span class="hljs-symbol">div</span>&gt;
 </code></pre><h2 id="images">Images</h2>
 <p>Local image: <img src="https://example.com/blog/my-post/screenshot.png" alt="Screenshot"></p>
-<p>Image with title: <img src="https://example.com/blog/my-post/logo.png" alt="Logo" title="Company Logo"></p>
+<p>Image with title: <figure><img src="https://example.com/blog/my-post/logo.png" alt="Logo" title="Company Logo"><figcaption>Company Logo</figcaption></figure></p>
 <p>External image: <img src="https://example.com/external.png" alt="External"></p>
 <h2 id="links">Links</h2>
 <p>Check out <a href="https://angular-buch.com/docs">our documentation</a> for more info.</p>
@@ -425,6 +425,7 @@ describe('JekyllMarkdownParser', () => {
       // === Images with URL transformation ===
       expect(html).toContain(`src="${baseUrl}screenshot.png"`);
       expect(html).toContain(`src="${baseUrl}logo.png"`);
+      expect(html).toContain('<figcaption>Company Logo</figcaption>');
       expect(html).toContain('title="Company Logo"');
       expect(html).toContain('src="https://example.com/external.png"'); // external unchanged
 
@@ -525,6 +526,8 @@ title: Test
       const parser = new JekyllMarkdownParser(baseUrl);
       const result = parser.parse(input);
 
+      expect(result.html).toContain('<figure>');
+      expect(result.html).toContain('<figcaption>Image Title</figcaption>');
       expect(result.html).toContain('title="Image Title"');
       expect(result.html).toContain(`src="${baseUrl}image.png"`);
       expect(result.html).toContain('alt="Alt text"');
