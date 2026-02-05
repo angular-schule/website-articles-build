@@ -1,6 +1,6 @@
 # website-articles-build
 
-Shared build scripts for processing Markdown blog entries into JSON.
+Shared build scripts for processing Markdown articles into JSON.
 
 Used as a git subtree in:
 - [angular-buch/website-articles](https://github.com/angular-buch/website-articles)
