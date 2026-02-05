@@ -10,22 +10,17 @@ const BLOG_POSTS_FOLDER = '../blog';
 const DIST_FOLDER = './dist';
 const LIST_FILE = 'list.json';
 
-/** Apply default values and transform YAML field names */
+/** Apply default values for optional YAML fields */
 function applyDefaults(entries: BlogEntryFull[]): BlogEntryFull[] {
-  return entries.map(entry => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawMeta = entry.meta as any;
-    return {
-      ...entry,
-      meta: {
-        ...entry.meta,
-        hidden: entry.meta.hidden ?? false,
-        sticky: entry.meta.sticky ?? false,
-        // Transform YAML 'darken-header' to camelCase 'darkenHeader'
-        darkenHeader: rawMeta['darken-header'] ?? false,
-      },
-    };
-  });
+  return entries.map(entry => ({
+    ...entry,
+    meta: {
+      ...entry.meta,
+      hidden: entry.meta.hidden ?? false,
+      sticky: entry.meta.sticky ?? false,
+      darkenHeader: entry.meta.darkenHeader ?? false,
+    },
+  }));
 }
 
 async function build(): Promise<void> {
