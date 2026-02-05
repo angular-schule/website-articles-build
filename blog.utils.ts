@@ -1,10 +1,6 @@
 import { BlogEntry, BlogEntryFull } from './blog.types';
 import { extractFirstBigParagraph } from './list.utils';
 
-export { extractFirstBigParagraph };
-
-
-
 export function makeLightBlogList(fullList: BlogEntryFull[]): BlogEntry[] {
   return fullList
     .filter(entry => !entry.meta.hidden)

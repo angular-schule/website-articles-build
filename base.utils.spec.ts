@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readMarkdownFile, getEntryList, markdownToEntry } from './base.utils';
+import { readMarkdownFile, readFolders, getImageDimensions, copyEntriesToDist, getEntryList, markdownToEntry } from './base.utils';
 import { EntryBase } from './base.types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -11,6 +11,150 @@ describe('base.utils', () => {
       await expect(readMarkdownFile('/non/existent/path/README.md'))
         .rejects
         .toThrow();
+    });
+
+    it('should read existing file content', async () => {
+      const testFile = '/tmp/test-read-' + Date.now() + '.md';
+      await fs.writeFile(testFile, 'Hello World');
+
+      const content = await readMarkdownFile(testFile);
+      expect(content).toBe('Hello World');
+
+      await fs.rm(testFile);
+    });
+  });
+
+  describe('readFolders', () => {
+    const testDir = '/tmp/test-readFolders-' + Date.now();
+
+    beforeEach(async () => {
+      await fs.mkdir(testDir, { recursive: true });
+    });
+
+    afterEach(async () => {
+      await fs.rm(testDir, { recursive: true, force: true });
+    });
+
+    it('should return only directory names', async () => {
+      await fs.mkdir(path.join(testDir, 'folder1'));
+      await fs.mkdir(path.join(testDir, 'folder2'));
+      await fs.writeFile(path.join(testDir, 'file.txt'), 'content');
+
+      const folders = await readFolders(testDir);
+
+      expect(folders).toContain('folder1');
+      expect(folders).toContain('folder2');
+      expect(folders).not.toContain('file.txt');
+    });
+
+    it('should exclude folders starting with underscore', async () => {
+      await fs.mkdir(path.join(testDir, 'visible'));
+      await fs.mkdir(path.join(testDir, '_hidden'));
+      await fs.mkdir(path.join(testDir, '_drafts'));
+
+      const folders = await readFolders(testDir);
+
+      expect(folders).toContain('visible');
+      expect(folders).not.toContain('_hidden');
+      expect(folders).not.toContain('_drafts');
+    });
+
+    it('should return empty array for empty directory', async () => {
+      const folders = await readFolders(testDir);
+      expect(folders).toEqual([]);
+    });
+  });
+
+  describe('getImageDimensions', () => {
+    it('should return dimensions for valid image', async () => {
+      // Create a minimal valid PNG (1x1 pixel)
+      const testImage = '/tmp/test-image-' + Date.now() + '.png';
+      // Minimal PNG: 1x1 red pixel
+      const pngData = Buffer.from([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1
+        0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+        0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
+        0x54, 0x08, 0xD7, 0x63, 0xF8, 0xFF, 0xFF, 0x3F,
+        0x00, 0x05, 0xFE, 0x02, 0xFE, 0xDC, 0xCC, 0x59,
+        0xE7, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+        0x44, 0xAE, 0x42, 0x60, 0x82
+      ]);
+      await fs.writeFile(testImage, pngData);
+
+      const { width, height } = await getImageDimensions(testImage);
+
+      expect(width).toBe(1);
+      expect(height).toBe(1);
+
+      await fs.rm(testImage);
+    });
+
+    it('should throw for non-existent image', async () => {
+      await expect(getImageDimensions('/non/existent/image.png'))
+        .rejects
+        .toThrow();
+    });
+  });
+
+  describe('copyEntriesToDist', () => {
+    const testDir = '/tmp/test-copyEntries-' + Date.now();
+    const sourceDir = path.join(testDir, 'source');
+    const distDir = path.join(testDir, 'dist');
+
+    beforeEach(async () => {
+      await fs.mkdir(sourceDir, { recursive: true });
+      await fs.mkdir(distDir, { recursive: true });
+    });
+
+    afterEach(async () => {
+      await fs.rm(testDir, { recursive: true, force: true });
+    });
+
+    it('should copy entry folder to dist and create entry.json', async () => {
+      // Create source entry
+      const entrySlug = 'test-post';
+      await fs.mkdir(path.join(sourceDir, entrySlug));
+      await fs.writeFile(path.join(sourceDir, entrySlug, 'README.md'), '# Test');
+      await fs.writeFile(path.join(sourceDir, entrySlug, 'image.png'), 'fake-image');
+
+      const entries = [{ slug: entrySlug, html: '<p>Test</p>', meta: { title: 'Test' } }];
+      await copyEntriesToDist(entries, sourceDir, distDir);
+
+      // Check entry.json was created
+      const entryJson = JSON.parse(
+        await fs.readFile(path.join(distDir, entrySlug, 'entry.json'), 'utf8')
+      );
+      expect(entryJson.slug).toBe(entrySlug);
+      expect(entryJson.html).toBe('<p>Test</p>');
+
+      // Check README.md was removed
+      await expect(fs.access(path.join(distDir, entrySlug, 'README.md')))
+        .rejects.toThrow();
+
+      // Check other files were copied
+      const imageContent = await fs.readFile(path.join(distDir, entrySlug, 'image.png'), 'utf8');
+      expect(imageContent).toBe('fake-image');
+    });
+
+    it('should handle multiple entries', async () => {
+      await fs.mkdir(path.join(sourceDir, 'post-1'));
+      await fs.mkdir(path.join(sourceDir, 'post-2'));
+      await fs.writeFile(path.join(sourceDir, 'post-1', 'README.md'), '# 1');
+      await fs.writeFile(path.join(sourceDir, 'post-2', 'README.md'), '# 2');
+
+      const entries = [
+        { slug: 'post-1', html: '<p>1</p>', meta: {} },
+        { slug: 'post-2', html: '<p>2</p>', meta: {} },
+      ];
+      await copyEntriesToDist(entries, sourceDir, distDir);
+
+      const json1 = JSON.parse(await fs.readFile(path.join(distDir, 'post-1', 'entry.json'), 'utf8'));
+      const json2 = JSON.parse(await fs.readFile(path.join(distDir, 'post-2', 'entry.json'), 'utf8'));
+
+      expect(json1.slug).toBe('post-1');
+      expect(json2.slug).toBe('post-2');
     });
   });
 
