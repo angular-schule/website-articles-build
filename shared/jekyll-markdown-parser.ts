@@ -31,10 +31,10 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  *    The literal `s*` matches zero or more 's' characters, not whitespace.
  *    It worked accidentally because most files use `---\n` without trailing chars.
  *
- * 2. FEATURE: Added _imageRenderer() to transform relative image paths to
+ * 2. FEATURE: Added imageRenderer() to transform relative image paths to
  *    absolute URLs using baseUrl (for CDN/deployment support).
  *
- * 3. FEATURE: Added _transformRelativeImagePaths() to handle raw HTML <img>
+ * 3. FEATURE: Added transformRelativeImagePaths() to handle raw HTML <img>
  *    tags that bypass the markdown renderer.
  *
  * 4. CHANGE: Converted from CommonJS module to ES6 class with constructor
@@ -57,7 +57,7 @@ export class JekyllMarkdownParser {
 
   private createMarkedInstance(): Marked {
     const renderer = new Renderer();
-    renderer.image = this._imageRenderer.bind(this);
+    renderer.image = this.imageRenderer.bind(this);
 
     return new Marked(
       markedHighlight({
@@ -72,7 +72,7 @@ export class JekyllMarkdownParser {
    * Check if a URL is absolute (should not be transformed).
    * Absolute URLs include: https://, http://, data:, //, assets/, /
    */
-  private _isAbsoluteUrl(url: string): boolean {
+  private isAbsoluteUrl(url: string): boolean {
     return url.startsWith('https://') || url.startsWith('http://') ||
            url.startsWith('data:') || url.startsWith('//') ||
            url.startsWith('assets/') || url.startsWith('/') ||
@@ -82,14 +82,14 @@ export class JekyllMarkdownParser {
   /**
    * Normalize a relative URL by stripping ./ prefix.
    */
-  private _normalizeRelativeUrl(url: string): string {
+  private normalizeRelativeUrl(url: string): string {
     return url.startsWith('./') ? url.slice(2) : url;
   }
 
   /**
    * Escape special HTML characters in attribute values.
    */
-  private _escapeHtml(text: string): string {
+  private escapeHtml(text: string): string {
     return text
       .replace(/&/g, '&amp;')
       .replace(/"/g, '&quot;')
@@ -104,17 +104,17 @@ export class JekyllMarkdownParser {
    * NOTE: In marked v17, the token contains RAW unescaped text.
    * We MUST escape special characters to prevent broken HTML.
    */
-  private _imageRenderer(token: Tokens.Image): string {
+  private imageRenderer(token: Tokens.Image): string {
     let src = token.href;
 
-    if (!this._isAbsoluteUrl(token.href)) {
-      src = this.baseUrl + this._normalizeRelativeUrl(token.href);
+    if (!this.isAbsoluteUrl(token.href)) {
+      src = this.baseUrl + this.normalizeRelativeUrl(token.href);
     }
 
-    const escapedAlt = this._escapeHtml(token.text);
+    const escapedAlt = this.escapeHtml(token.text);
     let out = `<img src="${src}" alt="${escapedAlt}"`;
     if (token.title) {
-      out += ` title="${this._escapeHtml(token.title)}"`;
+      out += ` title="${this.escapeHtml(token.title)}"`;
     }
     out += '>';
     return out;
@@ -122,12 +122,12 @@ export class JekyllMarkdownParser {
 
   // Transform relative paths in raw HTML <img> tags to absolute URLs
   // Supports both double quotes (src="...") and single quotes (src='...')
-  private _transformRelativeImagePaths(html: string): string {
+  private transformRelativeImagePaths(html: string): string {
     return html.replace(/<img([^>]*)\ssrc=(["'])([^"']+)\2/g, (match, attrs, quote, src) => {
-      if (this._isAbsoluteUrl(src)) {
+      if (this.isAbsoluteUrl(src)) {
         return match;
       }
-      return `<img${attrs} src=${quote}${this.baseUrl}${this._normalizeRelativeUrl(src)}${quote}`;
+      return `<img${attrs} src=${quote}${this.baseUrl}${this.normalizeRelativeUrl(src)}${quote}`;
     });
   }
 
@@ -159,7 +159,7 @@ export class JekyllMarkdownParser {
 
   private compileMarkdown(markdown: string): string {
     const html = this.marked.parse(markdown) as string;
-    return this._transformRelativeImagePaths(html);
+    return this.transformRelativeImagePaths(html);
   }
 
   private parseYaml(yaml: string): Record<string, unknown> {
