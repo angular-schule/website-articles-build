@@ -1,12 +1,15 @@
 import { existsSync } from 'fs';
+import * as path from 'path';
 import { mkdirp, writeJson } from 'fs-extra';
 
 import { MaterialEntry } from './material.types';
 import { copyEntriesToDist, getEntryList } from './base.utils';
 import { makeLightList } from './list.utils';
+import { MARKDOWN_BASE_URL_PLACEHOLDER } from './jekyll-markdown-parser';
 
 const MATERIAL_FOLDER = '../material';
 const DIST_FOLDER = './dist';
+const LIST_FILE = 'list.json';
 
 async function build(): Promise<void> {
   // Graceful exit if material folder doesn't exist (e.g., in angular-schule)
@@ -15,12 +18,12 @@ async function build(): Promise<void> {
     return;
   }
 
-  const materialDist = DIST_FOLDER + '/material';
+  const materialDist = path.join(DIST_FOLDER, 'material');
   await mkdirp(materialDist);
 
-  const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, '%%MARKDOWN_BASE_URL%%/material/');
+  const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, `${MARKDOWN_BASE_URL_PLACEHOLDER}/material/`);
   const materialListLight = makeLightList(materialList);
-  await writeJson(materialDist + '/list.json', materialListLight);
+  await writeJson(path.join(materialDist, LIST_FILE), materialListLight);
   await copyEntriesToDist(materialList, MATERIAL_FOLDER, materialDist);
 }
 

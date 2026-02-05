@@ -162,14 +162,14 @@ export class JekyllMarkdownParser {
     return this._transformRelativeImagePaths(html);
   }
 
-  private parseYaml(yaml: string): any {
-    return load(yaml);
+  private parseYaml(yaml: string): Record<string, unknown> | undefined {
+    return load(yaml) as Record<string, unknown> | undefined;
   }
 
   public parse(jekyllMarkdown: string): {
     html: string;
     yaml: string;
-    parsedYaml: any;
+    parsedYaml: Record<string, unknown> | undefined;
     markdown: string;
   } {
     const { yaml, markdown } = this.separate(jekyllMarkdown);

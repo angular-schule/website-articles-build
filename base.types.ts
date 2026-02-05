@@ -1,3 +1,15 @@
+/** Image dimensions returned by image-size library */
+export interface ImageDimensionsRaw {
+  width: number | undefined;
+  height: number | undefined;
+}
+
+/** Validated image dimensions (always defined) */
+export interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
 export interface EntryMetaBase {
   title: string;
   /**

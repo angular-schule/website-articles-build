@@ -1,4 +1,4 @@
-import { EntryBase, EntryMetaBase } from "./base.types";
+import { EntryBase, EntryMetaBase, ImageDimensions } from "./base.types";
 
 /**
  * Blog entry metadata after processing.
@@ -18,11 +18,7 @@ export interface BlogEntryMeta extends EntryMetaBase {
    * Header image info. In YAML this is just a filename string,
    * but markdownToEntry() transforms it to this object structure.
    */
-  header?: {
-    url: string;
-    width: number | undefined;
-    height: number | undefined;
-  };
+  header?: ImageDimensions & { url: string };
 }
 
 export interface BlogEntry extends EntryBase {

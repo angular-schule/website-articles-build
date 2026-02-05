@@ -1,10 +1,14 @@
+import * as path from 'path';
 import * as emoji from 'node-emoji'
 import { imageSizeFromFile } from 'image-size/fromFile';
 import { readdir, readFile } from 'fs/promises';
 import { copy, remove, writeJson, mkdirp } from 'fs-extra';
 
 import { JekyllMarkdownParser } from './jekyll-markdown-parser';
-import { EntryBase } from './base.types';
+import { EntryBase, ImageDimensionsRaw } from './base.types';
+
+const README_FILE = 'README.md';
+const ENTRY_FILE = 'entry.json';
 
 /** Read all subdirectory names from a base path (excluding those starting with _) */
 export async function readFolders(basePath: string): Promise<string[]> {
@@ -20,8 +24,8 @@ export async function readMarkdownFile(filePath: string): Promise<string> {
   return readFile(filePath, 'utf8');
 }
 
-/** Get width and height of an image */
-export async function getImageDimensions(imagePath: string): Promise<{ width: number | undefined; height: number | undefined }> {
+/** Get width and height of an image (raw, may be undefined for some formats) */
+export async function getImageDimensions(imagePath: string): Promise<ImageDimensionsRaw> {
   const { width, height } = await imageSizeFromFile(imagePath);
   return { width, height };
 }
@@ -34,13 +38,13 @@ export async function copyEntriesToDist<T extends { slug: string }>(
 ): Promise<void> {
   // Process sequentially to fail fast on first error
   for (const entry of entries) {
-    const entryDistFolder = `${distFolder}/${entry.slug}`;
+    const entryDistFolder = path.join(distFolder, entry.slug);
 
     await mkdirp(entryDistFolder);
-    await copy(`${sourceFolder}/${entry.slug}`, entryDistFolder);
-    await remove(`${entryDistFolder}/README.md`);
+    await copy(path.join(sourceFolder, entry.slug), entryDistFolder);
+    await remove(path.join(entryDistFolder, README_FILE));
 
-    const entryJsonPath = `${entryDistFolder}/entry.json`;
+    const entryJsonPath = path.join(entryDistFolder, ENTRY_FILE);
     await writeJson(entryJsonPath, entry);
     console.log('Generated post file:', entryJsonPath);
   }
@@ -74,7 +78,7 @@ export async function markdownToEntry<T extends EntryBase>(
   const parser = new JekyllMarkdownParser(baseUrl + folder + '/');
   const parsedJekyllMarkdown = parser.parse(markdown);
 
-  const meta = parsedJekyllMarkdown.parsedYaml || {};
+  const meta = parsedJekyllMarkdown.parsedYaml ?? {};
 
   // Convert Date objects from js-yaml to ISO strings
   // js-yaml parses unquoted dates (e.g., `published: 2024-01-15`) as Date objects
@@ -88,8 +92,11 @@ export async function markdownToEntry<T extends EntryBase>(
   // Transform header from string (YAML) to object with dimensions
   if (meta.header) {
     const url = meta.header;  // Original string from YAML
-    const relativePath = blogPostsFolder + '/' + folder + '/' + meta.header;
-    const { width, height } = await getImageDimensions(relativePath);
+    const imagePath = path.join(blogPostsFolder, folder, meta.header);
+    const { width, height } = await getImageDimensions(imagePath);
+    if (width === undefined || height === undefined) {
+      throw new Error(`Could not determine dimensions for header image: ${imagePath}`);
+    }
     meta.header = { url, width, height };
   }
 
@@ -106,7 +113,7 @@ export async function getEntryList<T extends EntryBase>(entriesFolder: string, m
   const entries: T[] = [];
 
   for (const entryDir of entryDirs) {
-    const readmePath = `${entriesFolder}/${entryDir}/README.md`;
+    const readmePath = path.join(entriesFolder, entryDir, README_FILE);
     const readme = await readMarkdownFile(readmePath);
     const entry = await markdownToEntry<T>(readme, entryDir, markdownBaseUrl, entriesFolder);
     entries.push(entry);
