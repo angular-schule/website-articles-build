@@ -51,8 +51,8 @@ The consuming website replaces this placeholder with the actual base URL at runt
 
 **Input:** `../blog/` and `../material/` folders with Markdown READMEs
 
-**Output:** `./dist/` folder with:
-- `dist/blog/list.json` - Light blog list for overview
-- `dist/blog/{slug}/entry.json` - Full blog entry
-- `dist/material/list.json` - Light material list
-- `dist/material/{slug}/entry.json` - Full material entry
+**Output:** `../dist/` folder (parent directory) with:
+- `../dist/blog/list.json` - Light blog list for overview
+- `../dist/blog/{slug}/entry.json` - Full blog entry
+- `../dist/material/list.json` - Light material list
+- `../dist/material/{slug}/entry.json` - Full material entry
