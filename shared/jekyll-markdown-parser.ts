@@ -195,11 +195,20 @@ export class JekyllMarkdownParser {
       return '';
     }
 
+    // Warn about duplicate headings (would cause ID mismatch if also before marker)
+    const seenRaw = new Set<string>();
+    for (const h of relevantHeadings) {
+      if (seenRaw.has(h.raw)) {
+        console.warn(`WARNING: Duplicate heading "${h.raw}" - TOC links may not work correctly`);
+      }
+      seenRaw.add(h.raw);
+    }
+
     // Generate markdown list
     return relevantHeadings
       .map(h => {
         const indent = h.level === 3 ? '  ' : '';
-        return `${indent}* [${h.raw}](#${h.id})`;
+        return `${indent}* [${h.text}](#${h.id})`;
       })
       .join('\n');
   }

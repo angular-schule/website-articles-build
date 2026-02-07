@@ -19,6 +19,7 @@ export interface EntryMetaBase {
 }
 
 export interface EntryBase {
+  /** URL-friendly identifier derived from folder name: "2024-01-my-post" */
   slug: string;
   html: string;
   meta: EntryMetaBase;

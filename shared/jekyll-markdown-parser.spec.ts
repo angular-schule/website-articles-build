@@ -1491,6 +1491,139 @@ Just text, no more headings.
         // TOC area should be essentially empty (just the Inhalt heading)
         expect(result.html).toContain('<h2 id="inhalt">Inhalt</h2>');
       });
+
+      it('should preserve inline code formatting in TOC links', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Using \`npm install\`
+
+Text.
+
+## The \`async\` Keyword
+
+More text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // TOC links should contain <code> tags (rendered from markdown)
+        expect(result.html).toContain('<code>npm install</code></a>');
+        expect(result.html).toContain('<code>async</code>');
+        // The actual headings should also have code formatting
+        expect(result.html).toContain('<h2 id="using-npm-install">Using <code>npm install</code></h2>');
+      });
+
+      it('should preserve bold and italic formatting in TOC links', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## This is **important**
+
+Text.
+
+## Use *caution* here
+
+More text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // TOC links should contain formatting tags
+        expect(result.html).toContain('<strong>important</strong></a>');
+        expect(result.html).toContain('<em>caution</em> here</a>');
+      });
+
+      it('should preserve mixed formatting in TOC links', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Using \`rxResource\` with **Signals**
+
+Complex example.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // Should have both code and bold formatting
+        expect(result.html).toContain('<code>rxResource</code>');
+        expect(result.html).toContain('<strong>Signals</strong>');
+        // Verify the complete link structure
+        expect(result.html).toContain('Using <code>rxResource</code> with <strong>Signals</strong></a>');
+      });
+
+      it('should handle headings with only code (no plain text)', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## \`package.json\`
+
+Config file.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // The entire heading is code
+        expect(result.html).toContain('<code>package.json</code></a>');
+        expect(result.html).toContain('id="packagejson"');
+      });
+
+      it('should warn about duplicate headings (known limitation)', () => {
+        // KNOWN LIMITATION: If the same heading text appears multiple times,
+        // TOC links may not work correctly due to ID suffix mismatch.
+        // We warn about this but don't fix it (very rare edge case).
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Fazit
+
+Text.
+
+## Fazit
+
+End.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+
+        // Capture console.warn
+        const warnings: string[] = [];
+        const originalWarn = console.warn;
+        console.warn = (msg: string) => warnings.push(msg);
+
+        parser.parse(input);
+
+        console.warn = originalWarn;
+
+        // Should warn about duplicate heading
+        expect(warnings.length).toBe(1);
+        expect(warnings[0]).toContain('Duplicate heading');
+        expect(warnings[0]).toContain('Fazit');
+      });
     });
   });
 });
