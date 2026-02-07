@@ -72,7 +72,7 @@ Der Placeholder `%%MARKDOWN_BASE_URL%%` wird zur Laufzeit durch die Angular-App 
 
 ### 2. Links
 
-Relative Links werden zu absoluten Pfaden transformiert. Das ist notwendig, weil Angular `<base href="/">` verwendet.
+Relative Links werden zu absoluten Pfaden transformiert. Das ist notwendig, weil unsere Angular-Website `<base href="/">` verwendet.
 
 #### Anker-Links (TOC)
 
