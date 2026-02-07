@@ -2,7 +2,7 @@ import { posix as path } from 'path';
 import { load } from 'js-yaml';
 import { Marked, Renderer, Tokens } from 'marked';
 import { markedHighlight } from 'marked-highlight';
-import { gfmHeadingId } from 'marked-gfm-heading-id';
+import { gfmHeadingId, getHeadingList, resetHeadings } from 'marked-gfm-heading-id';
 import hljs from 'highlight.js';
 
 /**
@@ -10,6 +10,12 @@ import hljs from 'highlight.js';
  * See "URL TRANSFORMATION SYSTEM" below for details.
  */
 export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
+
+/**
+ * Marker for automatic table of contents generation.
+ * Place [[toc]] in your markdown and it will be replaced with a generated TOC.
+ */
+export const TOC_MARKER = '[[toc]]';
 
 /**
  * ============================================================================
@@ -164,6 +170,67 @@ export class JekyllMarkdownParser {
   }
 
   /**
+   * Decode common HTML entities back to their original characters.
+   * Used for TOC generation where we need plain text from marked's escaped output.
+   */
+  private decodeHtmlEntities(text: string): string {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
+  /**
+   * Generate a table of contents as Markdown from the document's headings.
+   * Uses getHeadingList() from marked-gfm-heading-id to get heading IDs.
+   *
+   * @param markdown - The markdown content to extract headings from
+   * @returns Markdown list with links to headings, or empty string if no headings
+   */
+  private generateToc(markdown: string): string {
+    // Parse markdown to collect headings (result is discarded, we only need side effect)
+    resetHeadings();
+    this.marked.parse(markdown);
+    const headings = getHeadingList();
+
+    // Filter to h2 and h3, skip headings that appear before [[toc]] marker
+    const tocIndex = markdown.indexOf(TOC_MARKER);
+    const headingsAfterMarker = headings.filter(h => {
+      // Only include h2 and h3
+      if (h.level < 2 || h.level > 3) return false;
+      // Skip the heading that contains the TOC (usually "Inhalt" or "Contents")
+      const headingPattern = new RegExp(`^#{${h.level}}\\s+${this.escapeRegex(this.decodeHtmlEntities(h.text))}`, 'm');
+      const match = markdown.match(headingPattern);
+      if (match && match.index !== undefined && match.index < tocIndex) {
+        return false;
+      }
+      return true;
+    });
+
+    if (headingsAfterMarker.length === 0) {
+      return '';
+    }
+
+    // Generate markdown list
+    return headingsAfterMarker
+      .map(h => {
+        const indent = h.level === 3 ? '  ' : '';
+        const text = this.decodeHtmlEntities(h.text);
+        return `${indent}* [${text}](#${h.id})`;
+      })
+      .join('\n');
+  }
+
+  /**
+   * Escape special regex characters in a string.
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
    * Custom image renderer that transforms relative URLs to absolute URLs.
    * marked v17 uses token-based API: renderer receives a token object.
    *
@@ -251,7 +318,16 @@ export class JekyllMarkdownParser {
   }
 
   private compileMarkdown(markdown: string): string {
-    const html = this.marked.parse(markdown) as string;
+    // Generate TOC if marker is present
+    let processedMarkdown = markdown;
+    if (markdown.includes(TOC_MARKER)) {
+      const toc = this.generateToc(markdown);
+      processedMarkdown = markdown.replace(TOC_MARKER, toc);
+    }
+
+    // Reset headings and parse (generateToc already parsed once, but we need fresh state)
+    resetHeadings();
+    const html = this.marked.parse(processedMarkdown) as string;
     const withImages = this.transformRelativeImagePaths(html);
     return this.transformRelativeLinks(withImages);
   }

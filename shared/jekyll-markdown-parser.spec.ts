@@ -3,7 +3,7 @@ import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
 import hljs from 'highlight.js';
-import { JekyllMarkdownParser, MARKDOWN_BASE_URL_PLACEHOLDER } from './jekyll-markdown-parser';
+import { JekyllMarkdownParser, MARKDOWN_BASE_URL_PLACEHOLDER, TOC_MARKER } from './jekyll-markdown-parser';
 
 /**
  * Create a Marked instance with the same extensions as JekyllMarkdownParser.
@@ -1347,6 +1347,150 @@ title: Test
         const result = parser.parse(input);
 
         expect(result.html).toContain('src="https://example.com/blog/my-post/image.png"');
+      });
+    });
+
+    describe('Table of Contents (TOC) generation', () => {
+      it('should replace ${TOC_MARKER} marker with generated TOC', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Einleitung
+
+Text.
+
+## Fazit
+
+End.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // TOC should contain links to headings after the marker
+        expect(result.html).toContain('href="/blog/my-post#einleitung"');
+        expect(result.html).toContain('href="/blog/my-post#fazit"');
+        // Should NOT contain the raw marker
+        expect(result.html).not.toContain('${TOC_MARKER}');
+      });
+
+      it('should skip headings before ${TOC_MARKER} marker', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Hauptteil
+
+Text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // "Inhalt" heading should NOT be in the TOC links
+        expect(result.html).not.toContain('>Inhalt</a>');
+        // But "Hauptteil" should be in TOC
+        expect(result.html).toContain('href="/blog/my-post#hauptteil"');
+      });
+
+      it('should include h2 and h3 headings with proper nesting', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Kapitel 1
+
+Text.
+
+### Unterkapitel 1.1
+
+More text.
+
+## Kapitel 2
+
+End.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#kapitel-1"');
+        expect(result.html).toContain('href="/blog/my-post#unterkapitel-11"');
+        expect(result.html).toContain('href="/blog/my-post#kapitel-2"');
+      });
+
+      it('should handle special characters in headings', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## FAQ & Hilfe
+
+Text.
+
+## Über uns
+
+More.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#faq--hilfe"');
+        // Note: marked URL-encodes non-ASCII chars in hrefs, but browser handles both
+        expect(result.html).toContain('href="/blog/my-post#%C3%BCber-uns"');
+        // The link text should contain the original characters (HTML-escaped)
+        expect(result.html).toContain('>FAQ &amp; Hilfe</a>');
+        expect(result.html).toContain('>Über uns</a>');
+      });
+
+      it('should work without ${TOC_MARKER} marker (no changes)', () => {
+        const input = `---
+title: Test
+---
+
+## Heading
+
+Text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('<h2 id="heading">Heading</h2>');
+        expect(result.html).not.toContain('${TOC_MARKER}');
+      });
+
+      it('should generate empty TOC when no headings after marker', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+Just text, no more headings.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // Should not contain the marker
+        expect(result.html).not.toContain('${TOC_MARKER}');
+        // TOC area should be essentially empty (just the Inhalt heading)
+        expect(result.html).toContain('<h2 id="inhalt">Inhalt</h2>');
       });
     });
   });
