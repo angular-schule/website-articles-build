@@ -484,13 +484,12 @@ author: John Doe
 This is a test.
 `;
       const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
-      const { parsedYaml, html, markdown } = parser.parse(input);
+      const { parsedYaml, html } = parser.parse(input);
 
       expect(parsedYaml.title).toBe('Test Post');
       expect(parsedYaml.author).toBe('John Doe');
       expect(html).toContain('<h1 id="hello-world">Hello World</h1>');
       expect(html).toContain('<p>This is a test.</p>');
-      expect(markdown).toBe('\n# Hello World\n\nThis is a test.\n');
     });
 
     it('should throw for markdown without frontmatter', () => {

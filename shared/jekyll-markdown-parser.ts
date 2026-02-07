@@ -4,6 +4,12 @@ import { Marked, Renderer, Tokens } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import { gfmHeadingId, getHeadingList, resetHeadings } from './gfm-heading-id';
 import hljs from 'highlight.js';
+import { escapeHtml } from './html.utils';
+
+// Precompiled regexes for performance
+const PROTOCOL_REGEX = /^\w+:/;
+const IMG_SRC_REGEX = /<img([^>]*)\ssrc=(["'])([^"']+)\2/g;
+const ANCHOR_HREF_REGEX = /<a([^>]*)\shref=(["'])([^"']+)\2/g;
 
 /**
  * Placeholder for image base URL. Replaced at runtime by the Angular app.
@@ -103,8 +109,11 @@ export const TOC_MARKER = '[[toc]]';
  * 6. UPGRADE: marked v4 → v17 migration
  *    - Using Marked class instance instead of global marked
  *    - marked-highlight extension for syntax highlighting
- *    - marked-gfm-heading-id extension for heading IDs
+ *    - Custom gfm-heading-id fork for heading IDs (see ./gfm-heading-id/)
  *    - Token-based renderer API (token object instead of separate params)
+ *
+ * 7. REFACTOR: Shared utilities extracted to ./html.utils.ts
+ *    - escapeHtml, decodeHtmlEntities, stripHtmlTags
  * ============================================================================
  */
 export class JekyllMarkdownParser {
@@ -142,7 +151,7 @@ export class JekyllMarkdownParser {
    */
   private isAbsoluteUrl(url: string): boolean {
     // Protocol pattern: word characters followed by colon (mailto:, tel:, https:, http:, ftp:, data:, etc.)
-    if (/^\w+:/.test(url)) {
+    if (PROTOCOL_REGEX.test(url)) {
       return true;
     }
     return url.startsWith('//') ||
@@ -159,62 +168,40 @@ export class JekyllMarkdownParser {
   }
 
   /**
-   * Escape special HTML characters in attribute values.
-   */
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  /**
    * Generate a table of contents as Markdown from the document's headings.
-   * Uses getHeadingList() from our gfm-heading-id fork.
+   * Only includes headings that appear AFTER the [[toc]] marker.
    *
    * @param markdown - The markdown content to extract headings from
    * @returns Markdown list with links to headings, or empty string if no headings
    */
   private generateToc(markdown: string): string {
-    // Parse markdown to collect headings (result is discarded, we only need side effect)
+    // Split at marker - only parse content AFTER the marker
+    const parts = markdown.split(TOC_MARKER);
+    if (parts.length < 2) {
+      return '';
+    }
+
+    const contentAfterMarker = parts.slice(1).join(TOC_MARKER); // Handle multiple markers (edge case)
+
+    // Parse only the part after [[toc]] to collect headings
     resetHeadings();
-    this.marked.parse(markdown);
+    this.marked.parse(contentAfterMarker);
     const headings = getHeadingList();
 
-    // Filter to h2 and h3, skip headings that appear before [[toc]] marker
-    const tocIndex = markdown.indexOf(TOC_MARKER);
-    const headingsAfterMarker = headings.filter(h => {
-      // Only include h2 and h3
-      if (h.level < 2 || h.level > 3) return false;
-      // Skip the heading that contains the TOC (usually "Inhalt" or "Contents")
-      // h.raw is already decoded (no HTML entities) thanks to our gfm-heading-id fork
-      const headingPattern = new RegExp(`^#{${h.level}}\\s+${this.escapeRegex(h.raw)}`, 'm');
-      const match = markdown.match(headingPattern);
-      if (match && match.index !== undefined && match.index < tocIndex) {
-        return false;
-      }
-      return true;
-    });
+    // Filter to h2 and h3 only
+    const relevantHeadings = headings.filter(h => h.level >= 2 && h.level <= 3);
 
-    if (headingsAfterMarker.length === 0) {
+    if (relevantHeadings.length === 0) {
       return '';
     }
 
     // Generate markdown list
-    return headingsAfterMarker
+    return relevantHeadings
       .map(h => {
         const indent = h.level === 3 ? '  ' : '';
         return `${indent}* [${h.raw}](#${h.id})`;
       })
       .join('\n');
-  }
-
-  /**
-   * Escape special regex characters in a string.
-   */
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**
@@ -231,10 +218,10 @@ export class JekyllMarkdownParser {
       src = this.baseUrl + this.normalizeRelativeUrl(token.href);
     }
 
-    const escapedAlt = this.escapeHtml(token.text);
+    const escapedAlt = escapeHtml(token.text);
     let out = `<img src="${src}" alt="${escapedAlt}"`;
     if (token.title) {
-      out += ` title="${this.escapeHtml(token.title)}"`;
+      out += ` title="${escapeHtml(token.title)}"`;
     }
     out += '>';
     return out;
@@ -243,7 +230,7 @@ export class JekyllMarkdownParser {
   // Transform relative paths in raw HTML <img> tags to absolute URLs
   // Supports both double quotes (src="...") and single quotes (src='...')
   private transformRelativeImagePaths(html: string): string {
-    return html.replace(/<img([^>]*)\ssrc=(["'])([^"']+)\2/g, (match, attrs, quote, src) => {
+    return html.replace(IMG_SRC_REGEX, (match, attrs, quote, src) => {
       if (this.isAbsoluteUrl(src)) {
         return match;
       }
@@ -261,7 +248,7 @@ export class JekyllMarkdownParser {
    * - ../other-slug#section → /blog/other-slug#section
    */
   private transformRelativeLinks(html: string): string {
-    return html.replace(/<a([^>]*)\shref=(["'])([^"']+)\2/g, (match, attrs, quote, href) => {
+    return html.replace(ANCHOR_HREF_REGEX, (match, attrs, quote, href) => {
       if (this.isAbsoluteUrl(href)) {
         return match;
       }
@@ -306,13 +293,16 @@ export class JekyllMarkdownParser {
 
   private compileMarkdown(markdown: string): string {
     // Generate TOC if marker is present
+    // Note: This parses twice when TOC is present - once to collect headings, once for final HTML.
+    // This is intentional: we need heading data before generating TOC, but TOC must be in the
+    // document before final parsing. The overhead is minimal for typical blog post sizes.
     let processedMarkdown = markdown;
     if (markdown.includes(TOC_MARKER)) {
       const toc = this.generateToc(markdown);
       processedMarkdown = markdown.replace(TOC_MARKER, toc);
     }
 
-    // Reset headings and parse (generateToc already parsed once, but we need fresh state)
+    // Reset headings for clean state (generateToc may have populated them)
     resetHeadings();
     const html = this.marked.parse(processedMarkdown) as string;
     const withImages = this.transformRelativeImagePaths(html);
@@ -329,19 +319,12 @@ export class JekyllMarkdownParser {
 
   public parse(jekyllMarkdown: string): {
     html: string;
-    yaml: string;
     parsedYaml: Record<string, unknown>;
-    markdown: string;
   } {
     const { yaml, markdown } = this.separate(jekyllMarkdown);
     const parsedYaml = this.parseYaml(yaml);
     const html = this.compileMarkdown(markdown);
 
-    return {
-      html,
-      markdown,
-      parsedYaml,
-      yaml
-    };
+    return { html, parsedYaml };
   }
 }

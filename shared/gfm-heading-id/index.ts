@@ -13,6 +13,7 @@
 
 import GithubSlugger from 'github-slugger';
 import type { MarkedExtension, Tokens } from 'marked';
+import { decodeHtmlEntities, stripHtmlTags } from '../html.utils';
 
 export interface HeadingData {
   level: number;
@@ -26,29 +27,6 @@ export interface HeadingData {
 
 let slugger = new GithubSlugger();
 let headings: HeadingData[] = [];
-
-/**
- * Decode HTML entities to their original characters.
- * Marked escapes special chars in heading text, we need to decode for slugging.
- */
-function decodeHtmlEntities(html: string): string {
-  return html
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#x2F;/g, '/');
-}
-
-/**
- * Strip HTML tags from text.
- * Used to get plain text from heading content.
- */
-function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, '');
-}
 
 /**
  * Create a marked extension that adds GitHub-style heading IDs.

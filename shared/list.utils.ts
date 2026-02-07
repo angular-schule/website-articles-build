@@ -1,4 +1,5 @@
 import { EntryBase } from './base.types';
+import { stripHtmlTags } from './html.utils';
 
 /**
  * Extract the first "big" paragraph from HTML content.
@@ -17,7 +18,6 @@ export function extractFirstBigParagraph(html: string): string {
     return '';
   }
 
-  const stripHtmlTags = (s: string) => s.replace(/<[^>]*>/g, '');
   const bigParagraph = matches.find(m => m && stripHtmlTags(m).length > 100);
   const paragraph = bigParagraph || matches[0] || '';
   return paragraph.replace(/<a\s.*?>(.*?)<\/a>/g, '$1');
