@@ -170,21 +170,8 @@ export class JekyllMarkdownParser {
   }
 
   /**
-   * Decode common HTML entities back to their original characters.
-   * Used for TOC generation where we need plain text from marked's escaped output.
-   */
-  private decodeHtmlEntities(text: string): string {
-    return text
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
-  }
-
-  /**
    * Generate a table of contents as Markdown from the document's headings.
-   * Uses getHeadingList() from marked-gfm-heading-id to get heading IDs.
+   * Uses getHeadingList() from our gfm-heading-id fork.
    *
    * @param markdown - The markdown content to extract headings from
    * @returns Markdown list with links to headings, or empty string if no headings
@@ -201,7 +188,8 @@ export class JekyllMarkdownParser {
       // Only include h2 and h3
       if (h.level < 2 || h.level > 3) return false;
       // Skip the heading that contains the TOC (usually "Inhalt" or "Contents")
-      const headingPattern = new RegExp(`^#{${h.level}}\\s+${this.escapeRegex(this.decodeHtmlEntities(h.text))}`, 'm');
+      // h.raw is already decoded (no HTML entities) thanks to our gfm-heading-id fork
+      const headingPattern = new RegExp(`^#{${h.level}}\\s+${this.escapeRegex(h.raw)}`, 'm');
       const match = markdown.match(headingPattern);
       if (match && match.index !== undefined && match.index < tocIndex) {
         return false;
@@ -217,8 +205,7 @@ export class JekyllMarkdownParser {
     return headingsAfterMarker
       .map(h => {
         const indent = h.level === 3 ? '  ' : '';
-        const text = this.decodeHtmlEntities(h.text);
-        return `${indent}* [${text}](#${h.id})`;
+        return `${indent}* [${h.raw}](#${h.id})`;
       })
       .join('\n');
   }
