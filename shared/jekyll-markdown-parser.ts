@@ -219,6 +219,10 @@ export class JekyllMarkdownParser {
    *
    * NOTE: In marked v17, the token contains RAW unescaped text.
    * We MUST escape special characters to prevent broken HTML.
+   *
+   * FEATURE: If a title is provided, the image is wrapped in a <figure> element
+   * with a <figcaption> containing the title text. This allows optional captions
+   * using standard Markdown syntax: ![alt](image.png "caption text")
    */
   private imageRenderer(token: Tokens.Image): string {
     let src = token.href;
@@ -228,12 +232,14 @@ export class JekyllMarkdownParser {
     }
 
     const escapedAlt = escapeHtml(token.text);
-    let out = `<img src="${src}" alt="${escapedAlt}"`;
+
     if (token.title) {
-      out += ` title="${escapeHtml(token.title)}"`;
+      const escapedTitle = escapeHtml(token.title);
+      const imgTag = `<img src="${src}" alt="${escapedAlt}" title="${escapedTitle}">`;
+      return `<figure>${imgTag}<figcaption>${escapedTitle}</figcaption></figure>`;
     }
-    out += '>';
-    return out;
+
+    return `<img src="${src}" alt="${escapedAlt}">`;
   }
 
   // Transform relative paths in raw HTML <img> tags to absolute URLs
