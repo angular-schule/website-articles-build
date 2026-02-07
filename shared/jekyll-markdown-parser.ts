@@ -2,7 +2,7 @@ import { posix as path } from 'path';
 import { load } from 'js-yaml';
 import { Marked, Renderer, Tokens } from 'marked';
 import { markedHighlight } from 'marked-highlight';
-import { gfmHeadingId, getHeadingList, resetHeadings } from 'marked-gfm-heading-id';
+import { gfmHeadingId, getHeadingList, resetHeadings } from './gfm-heading-id';
 import hljs from 'highlight.js';
 
 /**

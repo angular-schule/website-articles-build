@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
-import { gfmHeadingId } from 'marked-gfm-heading-id';
+import { gfmHeadingId } from './gfm-heading-id';
 import hljs from 'highlight.js';
 import { JekyllMarkdownParser, MARKDOWN_BASE_URL_PLACEHOLDER, TOC_MARKER } from './jekyll-markdown-parser';
 
