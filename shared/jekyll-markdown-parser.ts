@@ -300,7 +300,7 @@ export class JekyllMarkdownParser {
     return { markdown, yaml };
   }
 
-  private compileMarkdown(markdown: string): string {
+  private compileMarkdown(markdown: string): { html: string; headingIds: string[] } {
     // Generate TOC if marker is present
     // Note: This parses twice when TOC is present - once to collect headings, once for final HTML.
     // This is intentional: we need heading data before generating TOC, but TOC must be in the
@@ -314,8 +314,10 @@ export class JekyllMarkdownParser {
     // Reset headings for clean state (generateToc may have populated them)
     resetHeadings();
     const html = this.marked.parse(processedMarkdown) as string;
+    const headingIds = getHeadingList().map(h => h.id);
     const withImages = this.transformRelativeImagePaths(html);
-    return this.transformRelativeLinks(withImages);
+    const finalHtml = this.transformRelativeLinks(withImages);
+    return { html: finalHtml, headingIds };
   }
 
   private parseYaml(yaml: string): Record<string, unknown> {
@@ -329,11 +331,12 @@ export class JekyllMarkdownParser {
   public parse(jekyllMarkdown: string): {
     html: string;
     parsedYaml: Record<string, unknown>;
+    headingIds: string[];
   } {
     const { yaml, markdown } = this.separate(jekyllMarkdown);
     const parsedYaml = this.parseYaml(yaml);
-    const html = this.compileMarkdown(markdown);
+    const { html, headingIds } = this.compileMarkdown(markdown);
 
-    return { html, parsedYaml };
+    return { html, parsedYaml, headingIds };
   }
 }

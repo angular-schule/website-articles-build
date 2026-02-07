@@ -8,6 +8,7 @@ import { copyEntriesToDist, getEntryList } from './shared/base.utils';
 import { makeLightBlogList } from './blog/blog.utils';
 import { makeLightList } from './shared/list.utils';
 import { MARKDOWN_BASE_URL_PLACEHOLDER } from './shared/jekyll-markdown-parser';
+import { printValidationResults } from './shared/link-validator';
 
 const DIST_FOLDER = '../dist';
 const BLOG_FOLDER = '../blog';
@@ -65,7 +66,11 @@ async function build(): Promise<void> {
   await buildBlog();
   await buildMaterial();
 
-  console.log('Build complete!');
+  // Validate all anchor links (warnings only, does not fail build)
+  console.log('\nValidating anchor links...');
+  printValidationResults();
+
+  console.log('\nBuild complete!');
 }
 
 build().catch((error) => {

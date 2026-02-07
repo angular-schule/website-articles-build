@@ -6,6 +6,7 @@ import { copy, remove, writeJson, mkdirp } from 'fs-extra';
 
 import { JekyllMarkdownParser } from './jekyll-markdown-parser';
 import { EntryBase, ImageDimensions } from './base.types';
+import { registerAnchors, registerLinks } from './link-validator';
 
 const README_FILE = 'README.md';
 const ENTRY_FILE = 'entry.json';
@@ -81,9 +82,13 @@ export async function markdownToEntry<T extends EntryBase>(
 ): Promise<T> {
   const imageBaseUrl = baseUrl + folder + '/';
   const parser = new JekyllMarkdownParser(imageBaseUrl, linkBasePath);
-  const parsedJekyllMarkdown = parser.parse(markdown);
+  const { html, parsedYaml, headingIds } = parser.parse(markdown);
 
-  const meta: Record<string, unknown> = parsedJekyllMarkdown.parsedYaml;
+  // Register anchors and links for validation
+  registerAnchors(linkBasePath, headingIds);
+  registerLinks(linkBasePath, html);
+
+  const meta: Record<string, unknown> = parsedYaml;
 
   // Convert Date objects from js-yaml to ISO strings
   // js-yaml parses unquoted dates (e.g., `published: 2024-01-15`) as Date objects
@@ -105,7 +110,7 @@ export async function markdownToEntry<T extends EntryBase>(
   // Type assertion: we trust that YAML contains all required properties for T
   return {
     slug: folder,
-    html: emoji.emojify(parsedJekyllMarkdown.html),
+    html: emoji.emojify(html),
     meta
   } as unknown as T;
 }
