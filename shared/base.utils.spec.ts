@@ -250,7 +250,8 @@ describe('base.utils', () => {
         markdown,
         'test-entry',
         'https://example.com/',
-        '/non/existent/path'
+        '/non/existent/path',
+        '/blog/test-entry'
       )).rejects.toThrow();
     });
 
@@ -261,7 +262,8 @@ describe('base.utils', () => {
         markdown,
         'test-entry',
         'https://example.com/',
-        '/tmp'
+        '/tmp',
+        '/blog/test-entry'
       );
 
       // node-emoji converts :smile: to 😄 and :rocket: to 🚀
@@ -278,7 +280,8 @@ describe('base.utils', () => {
         markdown,
         'test-entry',
         'https://example.com/',
-        '/tmp'
+        '/tmp',
+        '/blog/test-entry'
       );
 
       // js-yaml parses unquoted dates as Date objects, but we convert to ISO string
@@ -293,7 +296,8 @@ describe('base.utils', () => {
         markdown,
         'my-awesome-post',
         'https://example.com/',
-        '/tmp'
+        '/tmp',
+        '/blog/my-awesome-post'
       );
 
       expect(result.slug).toBe('my-awesome-post');
