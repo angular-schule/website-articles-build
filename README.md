@@ -1,8 +1,8 @@
 # website-articles-build
 
-Build-System für Blog- und Material-Artikel. Transformiert Markdown zu JSON für die Angular-Websites.
+Build system for blog and material articles. Transforms Markdown to JSON for Angular websites.
 
-Wird als Git-Submodule verwendet in:
+Used as a Git submodule in:
 - [angular-buch/website-articles](https://github.com/angular-buch/website-articles)
 - [angular-schule/website-articles](https://github.com/angular-schule/website-articles)
 
@@ -10,157 +10,157 @@ Wird als Git-Submodule verwendet in:
 
 ```bash
 npm install
-npm run build    # Einmaliger Build
-npm run watch    # Watch-Mode für Entwicklung
-npm test         # Tests ausführen
-npm run typecheck # TypeScript prüfen
+npm run build    # Single build
+npm run watch    # Watch mode for development
+npm test         # Run tests
+npm run typecheck # TypeScript check
 ```
 
-## Projekt-Struktur
+## Project Structure
 
 ```
 website-articles-build/
-├── build.ts              # Haupt-Build-Script
+├── build.ts              # Main build script
 ├── blog/
-│   ├── blog.types.ts     # Blog-spezifische Typen
-│   └── blog.utils.ts     # Blog-spezifische Utilities
+│   ├── blog.types.ts     # Blog-specific types
+│   └── blog.utils.ts     # Blog-specific utilities
 ├── material/
-│   └── material.types.ts # Material-spezifische Typen
+│   └── material.types.ts # Material-specific types
 └── shared/
-    ├── jekyll-markdown-parser.ts  # Markdown-Parser
-    ├── base.utils.ts              # Gemeinsame Utilities
-    └── list.utils.ts              # Listen-Utilities
+    ├── jekyll-markdown-parser.ts  # Markdown parser
+    ├── base.utils.ts              # Shared utilities
+    └── list.utils.ts              # List utilities
 ```
 
 ## Output
 
-Der Build erzeugt für jeden Artikel:
+The build generates for each article:
 
-| Output | Beschreibung |
-|--------|--------------|
-| `dist/blog/{slug}/entry.json` | Vollständiger Artikel mit HTML |
-| `dist/blog/list.json` | Liste aller Artikel (Light-Version) |
-| `dist/material/{slug}/entry.json` | Vollständiger Material-Eintrag |
-| `dist/material/list.json` | Liste aller Material-Einträge |
+| Output | Description |
+|--------|-------------|
+| `dist/blog/{slug}/entry.json` | Full article with HTML |
+| `dist/blog/list.json` | List of all articles (light version) |
+| `dist/material/{slug}/entry.json` | Full material entry |
+| `dist/material/list.json` | List of all material entries |
 
 ---
 
-## Features für Markdown-Autoren
+## Features for Markdown Authors
 
-### 1. Bilder
+### 1. Images
 
-Relative Bildpfade werden automatisch transformiert:
+Relative image paths are automatically transformed:
 
 ```markdown
 ![Screenshot](screenshot.png)
 ![Logo](./images/logo.png)
 ```
 
-**Build-Output:**
+**Build output:**
 ```html
 <img src="%%MARKDOWN_BASE_URL%%/blog/my-article/screenshot.png">
 ```
 
-Der Placeholder `%%MARKDOWN_BASE_URL%%` wird zur Laufzeit durch die Angular-App ersetzt (CDN auf Prod, Proxy in Dev).
+The placeholder `%%MARKDOWN_BASE_URL%%` is replaced at runtime by the Angular app (CDN on prod, proxy in dev).
 
-**Nicht transformiert werden:**
+**Not transformed:**
 - Absolute URLs: `https://example.com/image.png`
-- Protokoll-relative URLs: `//cdn.example.com/image.png`
-- Asset-Pfade: `assets/img/icon.svg`
-- Absolute Pfade: `/images/logo.png`
-- Data-URIs: `data:image/png;base64,...`
+- Protocol-relative URLs: `//cdn.example.com/image.png`
+- Asset paths: `assets/img/icon.svg`
+- Absolute paths: `/images/logo.png`
+- Data URIs: `data:image/png;base64,...`
 
 ### 2. Links
 
-Relative Links werden zu absoluten Pfaden transformiert. Das ist notwendig, weil unsere Angular-Website `<base href="/">` verwendet.
+Relative links are transformed to absolute paths. This is necessary because our Angular website uses `<base href="/">`.
 
-#### Anker-Links (TOC)
+#### Anchor Links (TOC)
 
 ```markdown
-[Einleitung](#einleitung)
+[Introduction](#introduction)
 ```
 
-**Build-Output:**
+**Build output:**
 ```html
-<a href="/blog/my-article#einleitung">Einleitung</a>
+<a href="/blog/my-article#introduction">Introduction</a>
 ```
 
 #### Cross-Article Links
 
 ```markdown
-[Anderer Artikel](../other-article)
-[Anderer Artikel mit Anker](../other-article#setup)
+[Other Article](../other-article)
+[Other Article with Anchor](../other-article#setup)
 ```
 
-**Build-Output:**
+**Build output:**
 ```html
-<a href="/blog/other-article">Anderer Artikel</a>
-<a href="/blog/other-article#setup">Anderer Artikel mit Anker</a>
+<a href="/blog/other-article">Other Article</a>
+<a href="/blog/other-article#setup">Other Article with Anchor</a>
 ```
 
-**Nicht transformiert werden:**
+**Not transformed:**
 - Absolute URLs: `https://angular.io/docs`
-- Bereits absolute Pfade: `/blog/other-article`
+- Already absolute paths: `/blog/other-article`
 - mailto: `mailto:team@example.com`
 - tel: `tel:+49123456`
 - ftp: `ftp://files.example.com/file.zip`
 
-### 3. Automatisches Inhaltsverzeichnis (TOC)
+### 3. Automatic Table of Contents (TOC)
 
-Platziere `[[toc]]` im Markdown, um ein automatisches Inhaltsverzeichnis zu generieren.
+Place `[[toc]]` in your Markdown to generate an automatic table of contents.
 
-#### Beispiel
+#### Example
 
 ```markdown
 ---
-title: Mein Artikel
+title: My Article
 published: 2024-01-15
 ---
 
-## Inhalt
+## Contents
 
 [[toc]]
 
-## Einleitung
+## Introduction
 
 Lorem ipsum...
 
-### Unterkapitel
+### Subchapter
 
-Mehr Text...
+More text...
 
-## Fazit
+## Conclusion
 
-Ende.
+End.
 ```
 
-#### Generierter Output
+#### Generated Output
 
 ```html
-<h2 id="inhalt">Inhalt</h2>
+<h2 id="contents">Contents</h2>
 <ul>
-  <li><a href="/blog/my-article#einleitung">Einleitung</a></li>
+  <li><a href="/blog/my-article#introduction">Introduction</a></li>
   <li>
     <ul>
-      <li><a href="/blog/my-article#unterkapitel">Unterkapitel</a></li>
+      <li><a href="/blog/my-article#subchapter">Subchapter</a></li>
     </ul>
   </li>
-  <li><a href="/blog/my-article#fazit">Fazit</a></li>
+  <li><a href="/blog/my-article#conclusion">Conclusion</a></li>
 </ul>
 ```
 
-#### Regeln
+#### Rules
 
-| Regel | Beschreibung |
-|-------|--------------|
-| **Nur h2 und h3** | h1 und h4+ werden ignoriert |
-| **Nach dem Marker** | Headings vor `[[toc]]` werden übersprungen |
-| **Automatische IDs** | Heading-IDs werden von `marked-gfm-heading-id` generiert |
-| **Sonderzeichen** | `Über uns` → `#%C3%BCber-uns`, `FAQ & Hilfe` → `#faq--hilfe` |
+| Rule | Description |
+|------|-------------|
+| **Only h2 and h3** | h1 and h4+ are ignored |
+| **After the marker** | Headings before `[[toc]]` are skipped |
+| **Automatic IDs** | Heading IDs are generated by `marked-gfm-heading-id` |
+| **Special characters** | `About us` → `#about-us`, `FAQ & Help` → `#faq--help` |
 
-### 4. Syntax-Highlighting
+### 4. Syntax Highlighting
 
-Code-Blöcke werden automatisch mit highlight.js formatiert:
+Code blocks are automatically formatted with highlight.js:
 
 ````markdown
 ```typescript
@@ -171,7 +171,7 @@ console.log(greeting);
 
 ### 5. Raw HTML
 
-HTML im Markdown wird unverändert durchgereicht:
+HTML in Markdown is passed through unchanged:
 
 ```markdown
 <div class="custom-box">
@@ -181,11 +181,11 @@ HTML im Markdown wird unverändert durchgereicht:
 <iframe src="https://stackblitz.com/edit/angular" width="100%"></iframe>
 ```
 
-**Sicherheitshinweis:** Das ist beabsichtigt. Wir vertrauen unserem eigenen Repository. Es gibt keinen User-Generated Content.
+**Security note:** This is intentional. We trust our own repository. There is no user-generated content.
 
 ### 6. Emojis
 
-Emoji-Shortcodes werden zu Unicode konvertiert:
+Emoji shortcodes are converted to Unicode:
 
 ```markdown
 Hello :smile: World :rocket:
@@ -197,63 +197,63 @@ Hello :smile: World :rocket:
 
 ## YAML Frontmatter
 
-Jeder Artikel benötigt YAML Frontmatter:
+Every article requires YAML frontmatter:
 
 ```yaml
 ---
-title: "Artikel-Titel"
-author: Max Mustermann
-mail: max@example.com
+title: "Article Title"
+author: John Doe
+mail: john@example.com
 published: 2024-01-15
-language: de
+language: en
 header: header.jpg
 keywords:
   - Angular
   - TypeScript
 # Optional:
 lastModified: 2024-02-01
-hidden: false      # Artikel nicht in Liste anzeigen
-sticky: false      # Artikel oben anpinnen
+hidden: false      # Don't show article in list
+sticky: false      # Pin article to top
 darkenHeader: false
-author2: Co-Autor
+author2: Co-Author
 mail2: co@example.com
-bio: Kurze Bio des Autors
+bio: Short author bio
 ---
 ```
 
-### Datum-Formate
+### Date Formats
 
-Beide Formate werden unterstützt:
+Both formats are supported:
 
 ```yaml
-published: 2024-01-15              # Wird zu ISO-String konvertiert
-published: "2024-01-15T10:00:00Z"  # Bleibt als String
+published: 2024-01-15              # Converted to ISO string
+published: "2024-01-15T10:00:00Z"  # Stays as string
 ```
 
 ---
 
-## Entwicklung
+## Development
 
 ### Tests
 
 ```bash
-npm test           # Einmalig
-npm run test:watch # Watch-Mode
+npm test           # Single run
+npm run test:watch # Watch mode
 ```
 
-131 Tests decken ab:
-- Markdown-Parsing und HTML-Generierung
-- Bild- und Link-Transformation
-- TOC-Generierung
-- Edge Cases (mailto, tel, CRLF, etc.)
+131 tests cover:
+- Markdown parsing and HTML generation
+- Image and link transformation
+- TOC generation
+- Edge cases (mailto, tel, CRLF, etc.)
 
 ### TypeScript
 
 ```bash
-npm run typecheck  # Typen prüfen
+npm run typecheck  # Type check
 ```
 
-### Architektur
+### Architecture
 
 ```
 Markdown (README.md)
@@ -261,26 +261,26 @@ Markdown (README.md)
 JekyllMarkdownParser
     ├── YAML Frontmatter → parsedYaml
     ├── Markdown → marked → HTML
-    ├── Image URLs → transformiert mit Placeholder
-    ├── Links → transformiert zu absoluten Pfaden
-    └── TOC → generiert aus Headings
+    ├── Image URLs → transformed with placeholder
+    ├── Links → transformed to absolute paths
+    └── TOC → generated from headings
     ↓
 entry.json
 ```
 
 ---
 
-## Submodule-Hinweis
+## Submodule Warning
 
-Dieses Repository wird als Git-Submodule in `website-articles` eingebunden.
+This repository is included as a Git submodule in `website-articles`.
 
-**Änderungen immer hier vornehmen**, nicht im `build/`-Ordner des Parent-Repos!
+**Always make changes here**, not in the `build/` folder of the parent repo!
 
 ```bash
-# RICHTIG: Hier arbeiten
+# CORRECT: Work here
 cd website-articles-build
 git checkout -b feature/xyz
 
-# FALSCH: Nicht im Submodule arbeiten
+# WRONG: Don't work in the submodule
 cd website-articles/build  # ❌
 ```
