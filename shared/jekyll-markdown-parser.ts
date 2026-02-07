@@ -1,9 +1,14 @@
+import { posix as path } from 'path';
 import { load } from 'js-yaml';
 import { Marked, Renderer, Tokens } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import { gfmHeadingId } from 'marked-gfm-heading-id';
 import hljs from 'highlight.js';
 
+/**
+ * Placeholder for image base URL. Replaced at runtime by the Angular app.
+ * See "URL TRANSFORMATION SYSTEM" below for details.
+ */
 export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
 
 /**
@@ -14,8 +19,52 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  * Original source: https://github.com/bouzuya/jekyll-markdown-parser
  * Repository archived on Jun 28, 2020 (read-only, no longer maintained)
  *
- * SECURITY NOTE:
- * --------------
+ * ============================================================================
+ * URL TRANSFORMATION SYSTEM
+ * ============================================================================
+ *
+ * This parser handles two types of URL transformations:
+ *
+ * 1. IMAGES (baseUrl with MARKDOWN_BASE_URL_PLACEHOLDER)
+ * -------------------------------------------------------
+ * Images use a placeholder that gets replaced at runtime by the Angular app.
+ * This allows serving images from different origins (CDN, local dev, etc.).
+ *
+ *   Markdown:  ![Alt](image.png)
+ *   Build:     <img src="%%MARKDOWN_BASE_URL%%/blog/my-slug/image.png">
+ *   Runtime:   <img src="https://cdn.example.com/blog/my-slug/image.png">
+ *
+ * The placeholder is replaced in the Angular app based on environment config.
+ * This decouples the build from the deployment target.
+ *
+ * 2. LINKS (linkBasePath for relative → absolute transformation)
+ * ---------------------------------------------------------------
+ * Links are transformed from relative paths to absolute paths at build time.
+ * This is necessary because Angular uses <base href="/"> which breaks
+ * relative anchor links (e.g., #section would navigate to /#section).
+ *
+ *   Markdown:  [Section](#section)
+ *   Build:     <a href="/blog/my-slug#section">
+ *
+ *   Markdown:  [Other Post](../other-slug)
+ *   Build:     <a href="/blog/other-slug">
+ *
+ *   Markdown:  [Other Section](../other-slug#intro)
+ *   Build:     <a href="/blog/other-slug#intro">
+ *
+ * The linkBasePath is derived from the folder structure:
+ *   blog/my-slug/README.md → linkBasePath = "/blog/my-slug"
+ *
+ * WHY TWO DIFFERENT APPROACHES?
+ * - Images: Need runtime flexibility (CDN on prod, proxy during development)
+ * - Links: The Angular website mimics the folder structure of this repo.
+ *          blog/ content is served at /blog/, material/ at /material/.
+ *          That's why build-time resolution works: folder path = URL path.
+ *
+ * ============================================================================
+ * SECURITY NOTE
+ * ============================================================================
+ *
  * This parser does NOT sanitize or escape HTML content. Raw HTML in markdown
  * is passed through intentionally. This is a FEATURE, not a bug.
  *
@@ -24,8 +73,10 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  * All markdown content comes from our own Git repository. There is no
  * user-generated content. XSS is not a concern in this context.
  *
- * CHANGES FROM ORIGINAL:
- * -----------------------
+ * ============================================================================
+ * CHANGES FROM ORIGINAL
+ * ============================================================================
+ *
  * 1. BUG FIX: Regex in separate() had typo `/^---s*$/` instead of `/^---\s*$/`.
  *    This bug exists in the original bouzuya source code (never fixed).
  *    The literal `s*` matches zero or more 's' characters, not whitespace.
@@ -37,10 +88,13 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  * 3. FEATURE: Added transformRelativeImagePaths() to handle raw HTML <img>
  *    tags that bypass the markdown renderer.
  *
- * 4. CHANGE: Converted from CommonJS module to ES6 class with constructor
- *    for baseUrl injection.
+ * 4. FEATURE: Added transformRelativeLinks() to convert relative links to
+ *    absolute paths, fixing <base href="/"> issues in Angular.
  *
- * 5. UPGRADE: marked v4 → v17 migration
+ * 5. CHANGE: Converted from CommonJS module to ES6 class with constructor
+ *    for baseUrl and linkBasePath injection.
+ *
+ * 6. UPGRADE: marked v4 → v17 migration
  *    - Using Marked class instance instead of global marked
  *    - marked-highlight extension for syntax highlighting
  *    - marked-gfm-heading-id extension for heading IDs
@@ -51,7 +105,14 @@ export class JekyllMarkdownParser {
 
   private marked: Marked;
 
-  constructor(private baseUrl: string) {
+  /**
+   * @param baseUrl - Base URL for images (e.g., '%%MARKDOWN_BASE_URL%%/blog/my-slug/')
+   * @param linkBasePath - Absolute path for links (e.g., '/blog/my-slug')
+   */
+  constructor(
+    private baseUrl: string,
+    private linkBasePath: string
+  ) {
     this.marked = this.createMarkedInstance();
   }
 
@@ -70,12 +131,17 @@ export class JekyllMarkdownParser {
 
   /**
    * Check if a URL is absolute (should not be transformed).
-   * Absolute URLs include: https://, http://, data:, //, assets/, /
+   * Matches: protocols (mailto:, tel:, https:, etc.), protocol-relative (//),
+   * absolute paths (/), asset paths, and placeholder URLs.
    */
   private isAbsoluteUrl(url: string): boolean {
-    return url.startsWith('https://') || url.startsWith('http://') ||
-           url.startsWith('data:') || url.startsWith('//') ||
-           url.startsWith('assets/') || url.startsWith('/') ||
+    // Protocol pattern: word characters followed by colon (mailto:, tel:, https:, http:, ftp:, data:, etc.)
+    if (/^\w+:/.test(url)) {
+      return true;
+    }
+    return url.startsWith('//') ||
+           url.startsWith('/') ||
+           url.startsWith('assets/') ||
            url.startsWith(MARKDOWN_BASE_URL_PLACEHOLDER);
   }
 
@@ -131,6 +197,33 @@ export class JekyllMarkdownParser {
     });
   }
 
+  /**
+   * Transform relative links to absolute paths.
+   * Fixes <base href="/"> issue where #anchor resolves to /#anchor.
+   *
+   * Uses path.posix.resolve() for proper relative path resolution:
+   * - #section → /blog/my-slug#section
+   * - ../other-slug → /blog/other-slug
+   * - ../other-slug#section → /blog/other-slug#section
+   */
+  private transformRelativeLinks(html: string): string {
+    return html.replace(/<a([^>]*)\shref=(["'])([^"']+)\2/g, (match, attrs, quote, href) => {
+      if (this.isAbsoluteUrl(href)) {
+        return match;
+      }
+
+      const hasHash = href.includes('#');
+      const [pathPart, hash] = hasHash ? href.split('#') : [href, ''];
+
+      const resolved = pathPart
+        ? path.resolve(this.linkBasePath + '/', pathPart)
+        : this.linkBasePath;
+
+      const newHref = hasHash ? resolved + '#' + hash : resolved;
+      return `<a${attrs} href=${quote}${newHref}${quote}`;
+    });
+  }
+
   private separate(jekyllMarkdown: string): {
     markdown: string;
     yaml: string;
@@ -159,7 +252,8 @@ export class JekyllMarkdownParser {
 
   private compileMarkdown(markdown: string): string {
     const html = this.marked.parse(markdown) as string;
-    return this.transformRelativeImagePaths(html);
+    const withImages = this.transformRelativeImagePaths(html);
+    return this.transformRelativeLinks(withImages);
   }
 
   private parseYaml(yaml: string): Record<string, unknown> {

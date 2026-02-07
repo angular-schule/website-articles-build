@@ -76,9 +76,11 @@ export async function markdownToEntry<T extends EntryBase>(
   markdown: string,
   folder: string,
   baseUrl: string,
-  blogPostsFolder: string
+  blogPostsFolder: string,
+  linkBasePath: string
 ): Promise<T> {
-  const parser = new JekyllMarkdownParser(baseUrl + folder + '/');
+  const imageBaseUrl = baseUrl + folder + '/';
+  const parser = new JekyllMarkdownParser(imageBaseUrl, linkBasePath);
   const parsedJekyllMarkdown = parser.parse(markdown);
 
   const meta: Record<string, unknown> = parsedJekyllMarkdown.parsedYaml;
@@ -113,10 +115,14 @@ export async function getEntryList<T extends EntryBase>(entriesFolder: string, m
   const entryDirs = await readFolders(entriesFolder);
   const entries: T[] = [];
 
+  // Content type from folder structure: ../blog → blog, ../material → material
+  const contentType = path.basename(entriesFolder);
+
   for (const entryDir of entryDirs) {
     const readmePath = path.join(entriesFolder, entryDir, README_FILE);
     const readme = await readMarkdownFile(readmePath);
-    const entry = await markdownToEntry<T>(readme, entryDir, markdownBaseUrl, entriesFolder);
+    const linkBasePath = '/' + contentType + '/' + entryDir;
+    const entry = await markdownToEntry<T>(readme, entryDir, markdownBaseUrl, entriesFolder, linkBasePath);
     entries.push(entry);
   }
 
