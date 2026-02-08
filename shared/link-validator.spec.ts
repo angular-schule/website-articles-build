@@ -120,6 +120,22 @@ describe('link-validator', () => {
 
       expect(getLinks()).toHaveLength(0);
     });
+
+    it('should URL-decode anchor (ä encoded as %C3%A4)', () => {
+      // %C3%BC = ü in UTF-8
+      const html = '<a href="/blog/post#%C3%BCber-uns">Link</a>';
+      registerLinks('/blog/my-post', html);
+
+      // Anchor should be decoded to Unicode
+      expect(getLinks()[0].anchor).toBe('über-uns');
+    });
+
+    it('should handle already decoded Unicode anchors', () => {
+      const html = '<a href="#grundsätzliches-zu-docker">Link</a>';
+      registerLinks('/blog/my-post', html);
+
+      expect(getLinks()[0].anchor).toBe('grundsätzliches-zu-docker');
+    });
   });
 
   describe('validateLinks', () => {

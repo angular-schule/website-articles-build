@@ -81,7 +81,8 @@ export function registerLinks(fromPath: string, html: string): void {
     if (hashIndex === -1) continue;
 
     const pathPart = fullLink.substring(0, hashIndex);
-    const anchor = fullLink.substring(hashIndex + 1);
+    // URL-decode anchor (marked encodes special chars like ä → %C3%A4)
+    const anchor = decodeURIComponent(fullLink.substring(hashIndex + 1));
 
     // Determine target path
     const toPath = pathPart || fromPath; // Empty path = same document
