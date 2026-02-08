@@ -92,6 +92,34 @@ describe('link-validator', () => {
 
       expect(getLinks()).toHaveLength(2);
     });
+
+    it('should skip external https links', () => {
+      const html = '<a href="https://example.com/page#section">External</a>';
+      registerLinks('/blog/my-post', html);
+
+      expect(getLinks()).toHaveLength(0);
+    });
+
+    it('should skip external http links', () => {
+      const html = '<a href="http://example.com/page#section">External</a>';
+      registerLinks('/blog/my-post', html);
+
+      expect(getLinks()).toHaveLength(0);
+    });
+
+    it('should skip protocol-relative links', () => {
+      const html = '<a href="//example.com/page#section">External</a>';
+      registerLinks('/blog/my-post', html);
+
+      expect(getLinks()).toHaveLength(0);
+    });
+
+    it('should skip mailto links', () => {
+      const html = '<a href="mailto:test@example.com#subject">Mail</a>';
+      registerLinks('/blog/my-post', html);
+
+      expect(getLinks()).toHaveLength(0);
+    });
   });
 
   describe('validateLinks', () => {

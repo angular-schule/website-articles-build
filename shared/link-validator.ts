@@ -56,12 +56,26 @@ export function registerAnchors(entryPath: string, headingIds: string[]): void {
 }
 
 /**
+ * Check if a URL is external (should not be validated).
+ */
+function isExternalUrl(url: string): boolean {
+  return /^https?:\/\//.test(url) ||
+         url.startsWith('//') ||
+         url.startsWith('mailto:') ||
+         url.startsWith('tel:');
+}
+
+/**
  * Extract anchor links from HTML and register them.
+ * Only registers internal links - external URLs are skipped.
  * @param fromPath - Entry path where links were found
  * @param html - HTML content to scan for links
  */
 export function registerLinks(fromPath: string, html: string): void {
   for (const { fullLink } of extractAnchorLinks(html)) {
+    // Skip external URLs
+    if (isExternalUrl(fullLink)) continue;
+
     // Parse the link: "/blog/other#section" or "#section"
     const hashIndex = fullLink.indexOf('#');
     if (hashIndex === -1) continue;
