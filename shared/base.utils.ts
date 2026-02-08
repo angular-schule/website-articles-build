@@ -54,10 +54,20 @@ export async function copyEntriesToDist<T extends { slug: string }>(
   }
 }
 
-/** Simple way to sort things: create a sort key that can be easily sorted */
-function getSortKey(entry: EntryBase): string {
-  // ISO 8601 strings sort correctly in lexicographic order
-  return (entry.meta.sticky ? 'Z' : 'A') + '---' + entry.meta.published + '---' + entry.slug;
+/**
+ * Compare two entries for sorting (newest first, sticky on top).
+ * @returns negative if a comes first, positive if b comes first
+ */
+function compareEntries(a: EntryBase, b: EntryBase): number {
+  // 1. Sticky entries first
+  if (a.meta.sticky !== b.meta.sticky) {
+    return a.meta.sticky ? -1 : 1;
+  }
+  // 2. Then by date (newest first) - ISO 8601 strings sort lexicographically
+  const dateCompare = b.meta.published.localeCompare(a.meta.published);
+  if (dateCompare !== 0) return dateCompare;
+  // 3. Slug as tiebreaker (descending)
+  return b.slug.localeCompare(a.slug);
 }
 
 
@@ -131,5 +141,5 @@ export async function getEntryList<T extends EntryBase>(entriesFolder: string, m
     entries.push(entry);
   }
 
-  return entries.sort((a, b) => getSortKey(b).localeCompare(getSortKey(a)));
+  return entries.sort(compareEntries);
 }

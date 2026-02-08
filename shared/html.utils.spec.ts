@@ -135,6 +135,10 @@ describe('escapeHtml', () => {
     expect(escapeHtml('a > b')).toBe('a &gt; b');
   });
 
+  it("should escape ' to &#39;", () => {
+    expect(escapeHtml("It's fine")).toBe("It&#39;s fine");
+  });
+
   it('should escape all special characters in one string', () => {
     expect(escapeHtml('<div class="test">&</div>')).toBe('&lt;div class=&quot;test&quot;&gt;&amp;&lt;/div&gt;');
   });

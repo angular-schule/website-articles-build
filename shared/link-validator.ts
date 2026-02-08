@@ -33,6 +33,16 @@ const linkRegistry: AnchorLink[] = [];
 const ANCHOR_LINK_REGEX = /<a[^>]*\shref=(["'])([^"']*#[^"']+)\1/g;
 
 /**
+ * Extract all anchor links from HTML using matchAll().
+ * Safer than exec() loop with global regex - no shared state issues.
+ */
+function extractAnchorLinks(html: string): Array<{ fullLink: string }> {
+  return [...html.matchAll(ANCHOR_LINK_REGEX)].map(match => ({
+    fullLink: match[2]
+  }));
+}
+
+/**
  * Register heading anchors for an entry.
  * @param entryPath - Absolute path like "/blog/my-post"
  * @param headingIds - Array of heading IDs like ["intro", "fazit"]
@@ -51,10 +61,7 @@ export function registerAnchors(entryPath: string, headingIds: string[]): void {
  * @param html - HTML content to scan for links
  */
 export function registerLinks(fromPath: string, html: string): void {
-  let match;
-  while ((match = ANCHOR_LINK_REGEX.exec(html)) !== null) {
-    const fullLink = match[2];
-
+  for (const { fullLink } of extractAnchorLinks(html)) {
     // Parse the link: "/blog/other#section" or "#section"
     const hashIndex = fullLink.indexOf('#');
     if (hashIndex === -1) continue;
