@@ -10,9 +10,9 @@ Used as a Git submodule in:
 
 ```bash
 npm install
-npm run build    # Single build
-npm run watch    # Watch mode for development
-npm test         # Run tests
+npm run build     # Single build
+npm run watch     # Watch mode for development
+npm test          # Run tests
 npm run typecheck # TypeScript check
 ```
 
