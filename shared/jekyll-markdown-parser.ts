@@ -188,8 +188,8 @@ export class JekyllMarkdownParser {
     this.marked.parse(contentAfterMarker);
     const headings = getHeadingList();
 
-    // Filter to h2 and h3 only
-    const relevantHeadings = headings.filter(h => h.level >= 2 && h.level <= 3);
+    // Filter to h2, h3, and h4
+    const relevantHeadings = headings.filter(h => h.level >= 2 && h.level <= 4);
 
     if (relevantHeadings.length === 0) {
       return '';
@@ -207,7 +207,7 @@ export class JekyllMarkdownParser {
     // Generate markdown list
     return relevantHeadings
       .map(h => {
-        const indent = h.level === 3 ? '  ' : '';
+        const indent = '  '.repeat(h.level - 2); // h2='', h3='  ', h4='    '
         return `${indent}* [${h.text}](#${h.id})`;
       })
       .join('\n');
