@@ -1,58 +1,286 @@
 # website-articles-build
 
-Shared build scripts for processing Markdown articles into JSON.
+Build system for blog and material articles. Transforms Markdown to JSON for Angular websites.
 
-Used as a git subtree in:
+Used as a Git submodule in:
 - [angular-buch/website-articles](https://github.com/angular-buch/website-articles)
 - [angular-schule/website-articles](https://github.com/angular-schule/website-articles)
 
-## Usage
+## Setup
 
 ```bash
 npm install
-npm run build
+npm run build     # Single build
+npm run watch     # Watch mode for development
+npm test          # Run tests
+npm run typecheck # TypeScript check
 ```
 
-## Scripts
-
-| Script       | Description                          |
-|--------------|--------------------------------------|
-| `build`      | Build blog and material entries      |
-| `test`       | Run tests                            |
-| `test:watch` | Run tests in watch mode              |
-| `typecheck`  | TypeScript type checking             |
-| `watch`      | Watch mode for development           |
-
-## Folder Structure
+## Project Structure
 
 ```
-├── build.ts                 # Main entry point
+website-articles-build/
+├── build.ts              # Main build script
 ├── blog/
-│   ├── blog.types.ts        # Blog-specific types
-│   └── blog.utils.ts        # Blog list utilities
+│   ├── blog.types.ts     # Blog-specific types
+│   └── blog.utils.ts     # Blog-specific utilities
 ├── material/
-│   └── material.types.ts    # Material-specific types
+│   └── material.types.ts # Material-specific types
 └── shared/
-    ├── base.types.ts        # Shared base types
-    ├── base.utils.ts        # File/folder utilities
-    ├── list.utils.ts        # List extraction utilities
-    └── jekyll-markdown-parser.ts  # Markdown parser
+    ├── jekyll-markdown-parser.ts  # Markdown parser
+    ├── base.utils.ts              # Shared utilities
+    └── list.utils.ts              # List utilities
 ```
 
-## URL Placeholder
+## Output
 
-Generated URLs use `%%MARKDOWN_BASE_URL%%` as a placeholder:
-- `%%MARKDOWN_BASE_URL%%/blog/2024-post/image.png`
-- `%%MARKDOWN_BASE_URL%%/material/chapter-1/diagram.svg`
+The build generates for each article:
 
-The consuming website replaces this placeholder with the actual base URL at runtime.
+| Output | Description |
+|--------|-------------|
+| `dist/blog/{slug}/entry.json` | Full article with HTML |
+| `dist/blog/list.json` | List of all articles (light version) |
+| `dist/material/{slug}/entry.json` | Full material entry |
+| `dist/material/list.json` | List of all material entries |
 
-## Input/Output
+---
 
-**Input:** `../blog/` and `../material/` folders with Markdown READMEs
+## Features for Markdown Authors
 
-**Output:** `../dist/` folder (parent directory) with:
-- `../dist/blog/list.json` - Light blog list for overview
-- `../dist/blog/{slug}/entry.json` - Full blog entry
-- `../dist/material/list.json` - Light material list
-- `../dist/material/{slug}/entry.json` - Full material entry
+### 1. Images
+
+Relative image paths are automatically transformed:
+
+```markdown
+![Screenshot](screenshot.png)
+![Logo](./images/logo.png)
+```
+
+**Build output:**
+```html
+<img src="%%MARKDOWN_BASE_URL%%/blog/my-article/screenshot.png">
+```
+
+The placeholder `%%MARKDOWN_BASE_URL%%` is replaced at runtime by the Angular app (CDN on prod, proxy in dev).
+
+**Not transformed:**
+- Absolute URLs: `https://example.com/image.png`
+- Protocol-relative URLs: `//cdn.example.com/image.png`
+- Asset paths: `assets/img/icon.svg`
+- Absolute paths: `/images/logo.png`
+- Data URIs: `data:image/png;base64,...`
+
+### 2. Links
+
+Relative links are transformed to absolute paths. This is necessary because our Angular website uses `<base href="/">`.
+
+#### Anchor Links (TOC)
+
+```markdown
+[Introduction](#introduction)
+```
+
+**Build output:**
+```html
+<a href="/blog/my-article#introduction">Introduction</a>
+```
+
+#### Cross-Article Links
+
+```markdown
+[Other Article](../other-article)
+[Other Article with Anchor](../other-article#setup)
+```
+
+**Build output:**
+```html
+<a href="/blog/other-article">Other Article</a>
+<a href="/blog/other-article#setup">Other Article with Anchor</a>
+```
+
+**Not transformed:**
+- Absolute URLs: `https://angular.io/docs`
+- Already absolute paths: `/blog/other-article`
+- mailto: `mailto:team@example.com`
+- tel: `tel:+49123456`
+- ftp: `ftp://files.example.com/file.zip`
+
+### 3. Automatic Table of Contents (TOC)
+
+Place `[[toc]]` in your Markdown to generate an automatic table of contents.
+
+#### Example
+
+```markdown
+---
+title: My Article
+published: 2024-01-15
+---
+
+## Contents
+
+[[toc]]
+
+## Introduction
+
+Lorem ipsum...
+
+### Subchapter
+
+More text...
+
+## Conclusion
+
+End.
+```
+
+#### Generated Output
+
+```html
+<h2 id="contents">Contents</h2>
+<ul>
+  <li><a href="/blog/my-article#introduction">Introduction</a></li>
+  <li>
+    <ul>
+      <li><a href="/blog/my-article#subchapter">Subchapter</a></li>
+    </ul>
+  </li>
+  <li><a href="/blog/my-article#conclusion">Conclusion</a></li>
+</ul>
+```
+
+#### Rules
+
+| Rule | Description |
+|------|-------------|
+| **Only h2 and h3** | h1 and h4+ are ignored |
+| **After the marker** | Headings before `[[toc]]` are skipped |
+| **Automatic IDs** | Heading IDs follow [GitHub's algorithm](https://github.com/Flet/github-slugger) |
+| **Special characters** | Umlauts preserved (`Über uns` → `#über-uns`), `&` removed |
+
+### 4. Syntax Highlighting
+
+Code blocks are automatically formatted with highlight.js:
+
+````markdown
+```typescript
+const greeting = 'Hello World';
+console.log(greeting);
+```
+````
+
+### 5. Raw HTML
+
+HTML in Markdown is passed through unchanged:
+
+```markdown
+<div class="custom-box">
+  <p>Custom styled content</p>
+</div>
+
+<iframe src="https://stackblitz.com/edit/angular" width="100%"></iframe>
+```
+
+**Security note:** This is intentional. We trust our own repository. There is no user-generated content.
+
+### 6. Emojis
+
+Emoji shortcodes are converted to Unicode:
+
+```markdown
+Hello :smile: World :rocket:
+```
+
+**Output:** Hello 😄 World 🚀
+
+---
+
+## YAML Frontmatter
+
+Every article requires YAML frontmatter:
+
+```yaml
+---
+title: "Article Title"
+author: John Doe
+mail: john@example.com
+published: 2024-01-15
+language: en
+header: header.jpg
+keywords:
+  - Angular
+  - TypeScript
+# Optional:
+lastModified: 2024-02-01
+hidden: false      # Don't show article in list
+sticky: false      # Pin article to top
+darkenHeader: false
+author2: Co-Author
+mail2: co@example.com
+bio: Short author bio
+---
+```
+
+### Date Formats
+
+Both formats are supported:
+
+```yaml
+published: 2024-01-15              # Converted to ISO string
+published: "2024-01-15T10:00:00Z"  # Stays as string
+```
+
+---
+
+## Development
+
+### Tests
+
+```bash
+npm test           # Single run
+npm run test:watch # Watch mode
+```
+
+131 tests cover:
+- Markdown parsing and HTML generation
+- Image and link transformation
+- TOC generation
+- Edge cases (mailto, tel, CRLF, etc.)
+
+### TypeScript
+
+```bash
+npm run typecheck  # Type check
+```
+
+### Architecture
+
+```
+Markdown (README.md)
+    ↓
+JekyllMarkdownParser
+    ├── YAML Frontmatter → parsedYaml
+    ├── Markdown → marked → HTML
+    ├── Image URLs → transformed with placeholder
+    ├── Links → transformed to absolute paths
+    └── TOC → generated from headings
+    ↓
+entry.json
+```
+
+---
+
+## Submodule Warning
+
+This repository is included as a Git submodule in `website-articles`.
+
+**Always make changes here**, not in the `build/` folder of the parent repo!
+
+```bash
+# CORRECT: Work here
+cd website-articles-build
+git checkout -b feature/xyz
+
+# WRONG: Don't work in the submodule
+cd website-articles/build  # ❌
+```

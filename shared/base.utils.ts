@@ -6,6 +6,7 @@ import { copy, remove, writeJson, mkdirp } from 'fs-extra';
 
 import { JekyllMarkdownParser } from './jekyll-markdown-parser';
 import { EntryBase, ImageDimensions } from './base.types';
+import { registerAnchors, registerLinks } from './link-validator';
 
 const README_FILE = 'README.md';
 const ENTRY_FILE = 'entry.json';
@@ -53,10 +54,20 @@ export async function copyEntriesToDist<T extends { slug: string }>(
   }
 }
 
-/** Simple way to sort things: create a sort key that can be easily sorted */
-function getSortKey(entry: EntryBase): string {
-  // ISO 8601 strings sort correctly in lexicographic order
-  return (entry.meta.sticky ? 'Z' : 'A') + '---' + entry.meta.published + '---' + entry.slug;
+/**
+ * Compare two entries for sorting (newest first, sticky on top).
+ * @returns negative if a comes first, positive if b comes first
+ */
+function compareEntries(a: EntryBase, b: EntryBase): number {
+  // 1. Sticky entries first
+  if (a.meta.sticky !== b.meta.sticky) {
+    return a.meta.sticky ? -1 : 1;
+  }
+  // 2. Then by date (newest first) - ISO 8601 strings sort lexicographically
+  const dateCompare = b.meta.published.localeCompare(a.meta.published);
+  if (dateCompare !== 0) return dateCompare;
+  // 3. Slug as tiebreaker (descending)
+  return b.slug.localeCompare(a.slug);
 }
 
 
@@ -76,12 +87,18 @@ export async function markdownToEntry<T extends EntryBase>(
   markdown: string,
   folder: string,
   baseUrl: string,
-  blogPostsFolder: string
+  blogPostsFolder: string,
+  linkBasePath: string
 ): Promise<T> {
-  const parser = new JekyllMarkdownParser(baseUrl + folder + '/');
-  const parsedJekyllMarkdown = parser.parse(markdown);
+  const imageBaseUrl = baseUrl + folder + '/';
+  const parser = new JekyllMarkdownParser(imageBaseUrl, linkBasePath);
+  const { html, parsedYaml, headingIds } = parser.parse(markdown);
 
-  const meta: Record<string, unknown> = parsedJekyllMarkdown.parsedYaml;
+  // Register anchors and links for validation
+  registerAnchors(linkBasePath, headingIds);
+  registerLinks(linkBasePath, html);
+
+  const meta: Record<string, unknown> = parsedYaml;
 
   // Convert Date objects from js-yaml to ISO strings
   // js-yaml parses unquoted dates (e.g., `published: 2024-01-15`) as Date objects
@@ -103,7 +120,7 @@ export async function markdownToEntry<T extends EntryBase>(
   // Type assertion: we trust that YAML contains all required properties for T
   return {
     slug: folder,
-    html: emoji.emojify(parsedJekyllMarkdown.html),
+    html: emoji.emojify(html),
     meta
   } as unknown as T;
 }
@@ -113,12 +130,16 @@ export async function getEntryList<T extends EntryBase>(entriesFolder: string, m
   const entryDirs = await readFolders(entriesFolder);
   const entries: T[] = [];
 
+  // Content type from folder structure: ../blog → blog, ../material → material
+  const contentType = path.basename(entriesFolder);
+
   for (const entryDir of entryDirs) {
     const readmePath = path.join(entriesFolder, entryDir, README_FILE);
     const readme = await readMarkdownFile(readmePath);
-    const entry = await markdownToEntry<T>(readme, entryDir, markdownBaseUrl, entriesFolder);
+    const linkBasePath = '/' + contentType + '/' + entryDir;
+    const entry = await markdownToEntry<T>(readme, entryDir, markdownBaseUrl, entriesFolder, linkBasePath);
     entries.push(entry);
   }
 
-  return entries.sort((a, b) => getSortKey(b).localeCompare(getSortKey(a)));
+  return entries.sort(compareEntries);
 }

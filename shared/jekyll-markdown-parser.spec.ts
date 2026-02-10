@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
-import { gfmHeadingId } from 'marked-gfm-heading-id';
+import { gfmHeadingId } from './gfm-heading-id';
 import hljs from 'highlight.js';
-import { JekyllMarkdownParser, MARKDOWN_BASE_URL_PLACEHOLDER } from './jekyll-markdown-parser';
+import { JekyllMarkdownParser, MARKDOWN_BASE_URL_PLACEHOLDER, TOC_MARKER } from './jekyll-markdown-parser';
 
 /**
  * Create a Marked instance with the same extensions as JekyllMarkdownParser.
@@ -385,6 +385,7 @@ describe('Configured marked behavior (baseline)', () => {
  */
 describe('JekyllMarkdownParser', () => {
   const baseUrl = 'https://example.com/blog/my-post/';
+  const linkBasePath = '/blog/my-post';
 
   describe('Comprehensive regression test (marked upgrade safety)', () => {
     /**
@@ -392,7 +393,7 @@ describe('JekyllMarkdownParser', () => {
      * If this test fails, the upgrade broke something important!
      */
     it('should produce expected output for comprehensive blog post', () => {
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const { parsedYaml, html } = parser.parse(COMPREHENSIVE_BLOG_POST);
 
       // === YAML Frontmatter ===
@@ -465,7 +466,7 @@ describe('JekyllMarkdownParser', () => {
      * 3. Update EXPECTED_HTML_WITH_IMAGE_TRANSFORM only if the change is intentional
      */
     it('should produce EXACT HTML output (character-by-character)', () => {
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(COMPREHENSIVE_BLOG_POST);
 
       expect(result.html).toBe(EXPECTED_HTML_WITH_IMAGE_TRANSFORM);
@@ -483,19 +484,18 @@ author: John Doe
 
 This is a test.
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
-      const { parsedYaml, html, markdown } = parser.parse(input);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+      const { parsedYaml, html } = parser.parse(input);
 
       expect(parsedYaml.title).toBe('Test Post');
       expect(parsedYaml.author).toBe('John Doe');
       expect(html).toContain('<h1 id="hello-world">Hello World</h1>');
       expect(html).toContain('<p>This is a test.</p>');
-      expect(markdown).toBe('\n# Hello World\n\nThis is a test.\n');
     });
 
     it('should throw for markdown without frontmatter', () => {
       const input = '# Just Markdown\n\nNo frontmatter here.';
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
 
       expect(() => parser.parse(input)).toThrow('YAML frontmatter is required');
     });
@@ -509,7 +509,7 @@ title: Test
 
 ![Alt text](image.png)
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}image.png"`);
@@ -523,7 +523,7 @@ title: Test
 
 ![Alt text](image.png "Image Title")
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('<figure>');
@@ -540,7 +540,7 @@ title: Test
 
 ![External](https://other.com/image.png)
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="https://other.com/image.png"');
@@ -554,7 +554,7 @@ title: Test
 
 ![Alt](./image.png)
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}image.png"`);
@@ -568,7 +568,7 @@ title: Test
 
 ![Data](data:image/png;base64,ABC123)
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="data:image/png;base64,ABC123"');
@@ -581,7 +581,7 @@ title: Test
 
 ![Icon](assets/img/icon.svg)
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="assets/img/icon.svg"');
@@ -597,7 +597,7 @@ title: Test
 
 <img src="photo.jpg" alt="Photo">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}photo.jpg"`);
@@ -611,7 +611,7 @@ title: Test
 
 <img src="./photo.jpg" alt="Photo">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}photo.jpg"`);
@@ -625,7 +625,7 @@ title: Test
 
 <img src="images/photo.jpg" alt="Photo">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}images/photo.jpg"`);
@@ -638,7 +638,7 @@ title: Test
 
 <img src="https://other.com/image.png" alt="External">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="https://other.com/image.png"');
@@ -652,7 +652,7 @@ title: Test
 
 <img src="//cdn.example.com/image.png" alt="CDN">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="//cdn.example.com/image.png"');
@@ -666,7 +666,7 @@ title: Test
 
 <img src="data:image/png;base64,ABC123" alt="Data">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="data:image/png;base64,ABC123"');
@@ -680,7 +680,7 @@ title: Test
 
 <img src="assets/img/icon.svg" alt="Icon">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="assets/img/icon.svg"');
@@ -694,7 +694,7 @@ title: Test
 
 <img src="/images/logo.png" alt="Logo">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('src="/images/logo.png"');
@@ -708,7 +708,7 @@ title: Test
 
 <img src="photo.jpg" alt="Photo" width="300" class="rounded">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}photo.jpg"`);
@@ -726,7 +726,7 @@ title: Test
 <img src="second.jpg" alt="Second">
 <img src="https://external.com/third.jpg" alt="Third">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}first.jpg"`);
@@ -741,7 +741,7 @@ title: Test
 
 <img src='photo.jpg' alt='Photo'>
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src='${baseUrl}photo.jpg'`);
@@ -755,7 +755,7 @@ title: Test
 
 <img src='https://example.com/external.png' alt='External'>
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain("src='https://example.com/external.png'");
@@ -776,7 +776,7 @@ title: Test
 
 This has <mark>highlighted</mark> text and <abbr title="HyperText Markup Language">HTML</abbr>.
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('<mark>highlighted</mark>');
@@ -792,7 +792,7 @@ title: Test
   <p>Custom styled content</p>
 </div>
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('<div class="custom-box">');
@@ -806,7 +806,7 @@ title: Test
 
 <img src="photo.jpg" alt="A special image" class="rounded shadow" loading="lazy">
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain('class="rounded shadow"');
@@ -824,7 +824,7 @@ title: Test
 <img src="example.png" alt="Example">
 \`\`\`
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       // Code is escaped and syntax-highlighted by highlight.js
@@ -845,7 +845,7 @@ title: Test
 <img src="code-example.png" alt="Code">
 \`\`\`
 `;
-      const parser = new JekyllMarkdownParser(baseUrl);
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
       const result = parser.parse(input);
 
       expect(result.html).toContain(`src="${baseUrl}real-image.jpg"`);
@@ -869,7 +869,7 @@ title: Test
 
 ![HTTP Image](http://insecure.com/image.png)
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.html).toContain('src="http://insecure.com/image.png"');
@@ -883,7 +883,7 @@ title: Test
 
 <img src="http://insecure.com/image.png" alt="HTTP">
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.html).toContain('src="http://insecure.com/image.png"');
@@ -899,7 +899,7 @@ title: Test
 
 ![He said "hello"](image.png)
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         // Quotes should be escaped to prevent broken HTML
@@ -918,7 +918,7 @@ title: Test
 
 ![Alt](image.png "Title with "quotes"")
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         // Marked does NOT parse this as an image - it becomes literal text
@@ -933,7 +933,7 @@ title: Test
 
 ![Array<string>](image.png)
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.html).toContain('alt="Array&lt;string&gt;"');
@@ -946,7 +946,7 @@ title: Test
 
 ![Tom & Jerry](image.png)
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.html).toContain('alt="Tom &amp; Jerry"');
@@ -956,7 +956,7 @@ title: Test
     describe('YAML frontmatter edge cases', () => {
       it('should handle Windows line endings (CRLF)', () => {
         const input = '---\r\ntitle: Test\r\n---\r\n\r\n# Hello';
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const { parsedYaml, html } = parser.parse(input);
 
         expect(parsedYaml.title).toBe('Test');
@@ -966,7 +966,7 @@ title: Test
 
       it('should throw for only one separator (no valid frontmatter)', () => {
         const input = '---\nThis is not YAML, just a horizontal rule\n\n# Hello';
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
 
         expect(() => parser.parse(input)).toThrow('YAML frontmatter is required');
       });
@@ -982,7 +982,7 @@ title: Test
 
 This is after a horizontal rule.
 `;
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.parsedYaml.title).toBe('Test');
@@ -992,7 +992,7 @@ This is after a horizontal rule.
 
       it('should handle trailing whitespace after --- separator', () => {
         const input = '---   \ntitle: Test\n---\t\n\n# Hello';
-        const parser = new JekyllMarkdownParser(baseUrl);
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.parsedYaml.title).toBe('Test');
@@ -1008,13 +1008,14 @@ This is after a horizontal rule.
         // 2. transformRelativeImagePaths runs on the ENTIRE HTML output
         // 3. It must NOT add baseUrl again to URLs that already start with the placeholder
         const placeholderBaseUrl = `${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/`;
+        const placeholderLinkPath = '/blog/my-post';
         const input = `---
 title: Test
 ---
 
 ![Screenshot](screenshot.png)
 `;
-        const parser = new JekyllMarkdownParser(placeholderBaseUrl);
+        const parser = new JekyllMarkdownParser(placeholderBaseUrl, placeholderLinkPath);
         const result = parser.parse(input);
 
         // Should have exactly ONE placeholder prefix, not two!
@@ -1025,18 +1026,297 @@ title: Test
       it('should NOT double-prefix raw HTML images with placeholder in src', () => {
         // Edge case: What if someone manually writes the placeholder in HTML?
         const placeholderBaseUrl = `${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/`;
+        const placeholderLinkPath = '/blog/my-post';
         const input = `---
 title: Test
 ---
 
 <img src="${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/other-post/image.png" alt="Already prefixed">
 `;
-        const parser = new JekyllMarkdownParser(placeholderBaseUrl);
+        const parser = new JekyllMarkdownParser(placeholderBaseUrl, placeholderLinkPath);
         const result = parser.parse(input);
 
         // Should NOT add another prefix
         expect(result.html).toContain(`src="${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/other-post/image.png"`);
         expect(result.html).not.toContain(`${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/my-post/${MARKDOWN_BASE_URL_PLACEHOLDER}`);
+      });
+    });
+
+    describe('Relative link transformation', () => {
+      it('should transform #anchor to absolute path', () => {
+        const input = `---
+title: Test
+---
+
+Check the [introduction](#introduction) section.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#introduction"');
+      });
+
+      it('should transform ../sibling-slug to absolute path', () => {
+        const input = `---
+title: Test
+---
+
+See [other article](../other-post) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/other-post"');
+      });
+
+      it('should transform ../sibling-slug#section to absolute path with anchor', () => {
+        const input = `---
+title: Test
+---
+
+See [Angular 10](../2020-06-angular10#setup) for details.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/2020-06-angular10#setup"');
+      });
+
+      it('should NOT transform external https:// links', () => {
+        const input = `---
+title: Test
+---
+
+Check [Angular docs](https://angular.io/docs) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="https://angular.io/docs"');
+      });
+
+      it('should NOT transform external http:// links', () => {
+        const input = `---
+title: Test
+---
+
+Check [old site](http://example.com) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="http://example.com"');
+      });
+
+      it('should NOT transform already-absolute paths starting with /', () => {
+        const input = `---
+title: Test
+---
+
+Check [another post](/blog/2023-01-other-post) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/2023-01-other-post"');
+      });
+
+      it('should NOT transform already-absolute paths with hash', () => {
+        const input = `---
+title: Test
+---
+
+Check [section](/blog/2023-01-other-post#setup) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/2023-01-other-post#setup"');
+      });
+
+      it('should NOT transform absolute paths in raw HTML anchor tags', () => {
+        const input = `---
+title: Test
+---
+
+<a href="/blog/other-post">Other post</a>
+<a href="/blog/other-post#section">Section link</a>
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/other-post"');
+        expect(result.html).toContain('href="/blog/other-post#section"');
+      });
+
+      it('should NOT transform https:// links in raw HTML anchor tags', () => {
+        const input = `---
+title: Test
+---
+
+<a href="https://angular.io/guide/components">Angular Docs</a>
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="https://angular.io/guide/components"');
+      });
+
+      it('should NOT transform mailto: links', () => {
+        const input = `---
+title: Test
+---
+
+Contact us at [team@example.com](mailto:team@example.com).
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="mailto:team@example.com"');
+      });
+
+      it('should NOT transform tel: links', () => {
+        const input = `---
+title: Test
+---
+
+Call us at [+49 123 456](tel:+49123456).
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="tel:+49123456"');
+      });
+
+      it('should NOT transform ftp:// links', () => {
+        const input = `---
+title: Test
+---
+
+Download from [FTP](ftp://files.example.com/file.zip).
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="ftp://files.example.com/file.zip"');
+      });
+
+      it('should NOT transform mailto: in raw HTML', () => {
+        const input = `---
+title: Test
+---
+
+<a href="mailto:team@angular-buch.com">Mail</a>
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="mailto:team@angular-buch.com"');
+      });
+
+      it('should transform ./relative links to current path', () => {
+        const input = `---
+title: Test
+---
+
+See [local file](./diagram.svg) for illustration.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post/diagram.svg"');
+      });
+
+      it('should transform multiple anchor links in TOC', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+- [Einleitung](#einleitung)
+- [Hauptteil](#hauptteil)
+- [Fazit](#fazit)
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#einleitung"');
+        expect(result.html).toContain('href="/blog/my-post#hauptteil"');
+        expect(result.html).toContain('href="/blog/my-post#fazit"');
+      });
+
+      it('should handle raw HTML anchor tags with relative hrefs', () => {
+        const input = `---
+title: Test
+---
+
+<a href="#section">Jump to section</a>
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#section"');
+      });
+
+      it('should preserve other attributes on anchor tags', () => {
+        const input = `---
+title: Test
+---
+
+<a href="#section" class="nav-link" id="toc-1">Section</a>
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#section"');
+        expect(result.html).toContain('class="nav-link"');
+        expect(result.html).toContain('id="toc-1"');
+      });
+
+      it('should work with material paths', () => {
+        const materialLinkPath = '/material/signal-forms';
+        const input = `---
+title: Test
+---
+
+See [other material](../other-material#section) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, materialLinkPath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/material/other-material#section"');
+      });
+
+      it('should handle deeply nested relative paths', () => {
+        const input = `---
+title: Test
+---
+
+See [root](../../other) for more.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/other"');
+      });
+
+      it('should NOT transform links inside code blocks', () => {
+        const input = `---
+title: Test
+---
+
+\`\`\`html
+<a href="#section">Link in code</a>
+\`\`\`
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // Code is escaped by highlight.js, so the link should not be transformed
+        // The important assertion: no transformed href in the output
+        expect(result.html).toContain('language-html');
+        expect(result.html).not.toContain('href="/blog/my-post#section"');
       });
     });
 
@@ -1049,7 +1329,7 @@ title: Test
 
 ![Alt](image.png)
 `;
-        const parser = new JekyllMarkdownParser(baseUrlNoSlash);
+        const parser = new JekyllMarkdownParser(baseUrlNoSlash, linkBasePath);
         const result = parser.parse(input);
 
         // Without trailing slash, path gets concatenated directly
@@ -1065,10 +1345,287 @@ title: Test
 
 ![Alt](image.png)
 `;
-        const parser = new JekyllMarkdownParser(baseUrlWithSlash);
+        const parser = new JekyllMarkdownParser(baseUrlWithSlash, linkBasePath);
         const result = parser.parse(input);
 
         expect(result.html).toContain('src="https://example.com/blog/my-post/image.png"');
+      });
+    });
+
+    describe('Table of Contents (TOC) generation', () => {
+      it('should replace ${TOC_MARKER} marker with generated TOC', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Einleitung
+
+Text.
+
+## Fazit
+
+End.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // TOC should contain links to headings after the marker
+        expect(result.html).toContain('href="/blog/my-post#einleitung"');
+        expect(result.html).toContain('href="/blog/my-post#fazit"');
+        // Should NOT contain the raw marker
+        expect(result.html).not.toContain('${TOC_MARKER}');
+      });
+
+      it('should skip headings before ${TOC_MARKER} marker', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Hauptteil
+
+Text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // "Inhalt" heading should NOT be in the TOC links
+        expect(result.html).not.toContain('>Inhalt</a>');
+        // But "Hauptteil" should be in TOC
+        expect(result.html).toContain('href="/blog/my-post#hauptteil"');
+      });
+
+      it('should include h2 and h3 headings with proper nesting', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Kapitel 1
+
+Text.
+
+### Unterkapitel 1.1
+
+More text.
+
+## Kapitel 2
+
+End.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#kapitel-1"');
+        expect(result.html).toContain('href="/blog/my-post#unterkapitel-11"');
+        expect(result.html).toContain('href="/blog/my-post#kapitel-2"');
+      });
+
+      it('should handle special characters in headings', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## FAQ & Hilfe
+
+Text.
+
+## Über uns
+
+More.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('href="/blog/my-post#faq--hilfe"');
+        // Note: marked URL-encodes non-ASCII chars in hrefs, but browser handles both
+        expect(result.html).toContain('href="/blog/my-post#%C3%BCber-uns"');
+        // The link text should contain the original characters (HTML-escaped)
+        expect(result.html).toContain('>FAQ &amp; Hilfe</a>');
+        expect(result.html).toContain('>Über uns</a>');
+      });
+
+      it('should work without ${TOC_MARKER} marker (no changes)', () => {
+        const input = `---
+title: Test
+---
+
+## Heading
+
+Text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        expect(result.html).toContain('<h2 id="heading">Heading</h2>');
+        expect(result.html).not.toContain('${TOC_MARKER}');
+      });
+
+      it('should generate empty TOC when no headings after marker', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+Just text, no more headings.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // Should not contain the marker
+        expect(result.html).not.toContain('${TOC_MARKER}');
+        // TOC area should be essentially empty (just the Inhalt heading)
+        expect(result.html).toContain('<h2 id="inhalt">Inhalt</h2>');
+      });
+
+      it('should preserve inline code formatting in TOC links', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Using \`npm install\`
+
+Text.
+
+## The \`async\` Keyword
+
+More text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // TOC links should contain <code> tags (rendered from markdown)
+        expect(result.html).toContain('<code>npm install</code></a>');
+        expect(result.html).toContain('<code>async</code>');
+        // The actual headings should also have code formatting
+        expect(result.html).toContain('<h2 id="using-npm-install">Using <code>npm install</code></h2>');
+      });
+
+      it('should preserve bold and italic formatting in TOC links', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## This is **important**
+
+Text.
+
+## Use *caution* here
+
+More text.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // TOC links should contain formatting tags
+        expect(result.html).toContain('<strong>important</strong></a>');
+        expect(result.html).toContain('<em>caution</em> here</a>');
+      });
+
+      it('should preserve mixed formatting in TOC links', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Using \`rxResource\` with **Signals**
+
+Complex example.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // Should have both code and bold formatting
+        expect(result.html).toContain('<code>rxResource</code>');
+        expect(result.html).toContain('<strong>Signals</strong>');
+        // Verify the complete link structure
+        expect(result.html).toContain('Using <code>rxResource</code> with <strong>Signals</strong></a>');
+      });
+
+      it('should handle headings with only code (no plain text)', () => {
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## \`package.json\`
+
+Config file.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+        const result = parser.parse(input);
+
+        // The entire heading is code
+        expect(result.html).toContain('<code>package.json</code></a>');
+        expect(result.html).toContain('id="packagejson"');
+      });
+
+      it('should warn about duplicate headings (known limitation)', () => {
+        // KNOWN LIMITATION: If the same heading text appears multiple times,
+        // TOC links may not work correctly due to ID suffix mismatch.
+        // We warn about this but don't fix it (very rare edge case).
+        const input = `---
+title: Test
+---
+
+## Inhalt
+
+${TOC_MARKER}
+
+## Fazit
+
+Text.
+
+## Fazit
+
+End.
+`;
+        const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+
+        // Capture console.warn
+        const warnings: string[] = [];
+        const originalWarn = console.warn;
+        console.warn = (msg: string) => warnings.push(msg);
+
+        parser.parse(input);
+
+        console.warn = originalWarn;
+
+        // Should warn about duplicate heading
+        expect(warnings.length).toBe(1);
+        expect(warnings[0]).toContain('Duplicate heading');
+        expect(warnings[0]).toContain('Fazit');
       });
     });
   });

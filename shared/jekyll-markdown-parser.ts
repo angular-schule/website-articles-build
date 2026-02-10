@@ -1,10 +1,27 @@
+import { posix as path } from 'path';
 import { load } from 'js-yaml';
 import { Marked, Renderer, Tokens } from 'marked';
 import { markedHighlight } from 'marked-highlight';
-import { gfmHeadingId } from 'marked-gfm-heading-id';
+import { gfmHeadingId, getHeadingList, resetHeadings } from './gfm-heading-id';
 import hljs from 'highlight.js';
+import { escapeHtml } from './html.utils';
 
+// Precompiled regexes for performance
+const PROTOCOL_REGEX = /^\w+:/;
+const IMG_SRC_REGEX = /<img([^>]*)\ssrc=(["'])([^"']+)\2/g;
+const ANCHOR_HREF_REGEX = /<a([^>]*)\shref=(["'])([^"']+)\2/g;
+
+/**
+ * Placeholder for image base URL. Replaced at runtime by the Angular app.
+ * See "URL TRANSFORMATION SYSTEM" below for details.
+ */
 export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
+
+/**
+ * Marker for automatic table of contents generation.
+ * Place [[toc]] in your markdown and it will be replaced with a generated TOC.
+ */
+export const TOC_MARKER = '[[toc]]';
 
 /**
  * ============================================================================
@@ -14,8 +31,52 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  * Original source: https://github.com/bouzuya/jekyll-markdown-parser
  * Repository archived on Jun 28, 2020 (read-only, no longer maintained)
  *
- * SECURITY NOTE:
- * --------------
+ * ============================================================================
+ * URL TRANSFORMATION SYSTEM
+ * ============================================================================
+ *
+ * This parser handles two types of URL transformations:
+ *
+ * 1. IMAGES (baseUrl with MARKDOWN_BASE_URL_PLACEHOLDER)
+ * -------------------------------------------------------
+ * Images use a placeholder that gets replaced at runtime by the Angular app.
+ * This allows serving images from different origins (CDN, local dev, etc.).
+ *
+ *   Markdown:  ![Alt](image.png)
+ *   Build:     <img src="%%MARKDOWN_BASE_URL%%/blog/my-slug/image.png">
+ *   Runtime:   <img src="https://cdn.example.com/blog/my-slug/image.png">
+ *
+ * The placeholder is replaced in the Angular app based on environment config.
+ * This decouples the build from the deployment target.
+ *
+ * 2. LINKS (linkBasePath for relative → absolute transformation)
+ * ---------------------------------------------------------------
+ * Links are transformed from relative paths to absolute paths at build time.
+ * This is necessary because Angular uses <base href="/"> which breaks
+ * relative anchor links (e.g., #section would navigate to /#section).
+ *
+ *   Markdown:  [Section](#section)
+ *   Build:     <a href="/blog/my-slug#section">
+ *
+ *   Markdown:  [Other Post](../other-slug)
+ *   Build:     <a href="/blog/other-slug">
+ *
+ *   Markdown:  [Other Section](../other-slug#intro)
+ *   Build:     <a href="/blog/other-slug#intro">
+ *
+ * The linkBasePath is derived from the folder structure:
+ *   blog/my-slug/README.md → linkBasePath = "/blog/my-slug"
+ *
+ * WHY TWO DIFFERENT APPROACHES?
+ * - Images: Need runtime flexibility (CDN on prod, proxy during development)
+ * - Links: The Angular website mimics the folder structure of this repo.
+ *          blog/ content is served at /blog/, material/ at /material/.
+ *          That's why build-time resolution works: folder path = URL path.
+ *
+ * ============================================================================
+ * SECURITY NOTE
+ * ============================================================================
+ *
  * This parser does NOT sanitize or escape HTML content. Raw HTML in markdown
  * is passed through intentionally. This is a FEATURE, not a bug.
  *
@@ -24,8 +85,10 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  * All markdown content comes from our own Git repository. There is no
  * user-generated content. XSS is not a concern in this context.
  *
- * CHANGES FROM ORIGINAL:
- * -----------------------
+ * ============================================================================
+ * CHANGES FROM ORIGINAL
+ * ============================================================================
+ *
  * 1. BUG FIX: Regex in separate() had typo `/^---s*$/` instead of `/^---\s*$/`.
  *    This bug exists in the original bouzuya source code (never fixed).
  *    The literal `s*` matches zero or more 's' characters, not whitespace.
@@ -37,21 +100,34 @@ export const MARKDOWN_BASE_URL_PLACEHOLDER = '%%MARKDOWN_BASE_URL%%';
  * 3. FEATURE: Added transformRelativeImagePaths() to handle raw HTML <img>
  *    tags that bypass the markdown renderer.
  *
- * 4. CHANGE: Converted from CommonJS module to ES6 class with constructor
- *    for baseUrl injection.
+ * 4. FEATURE: Added transformRelativeLinks() to convert relative links to
+ *    absolute paths, fixing <base href="/"> issues in Angular.
  *
- * 5. UPGRADE: marked v4 → v17 migration
+ * 5. CHANGE: Converted from CommonJS module to ES6 class with constructor
+ *    for baseUrl and linkBasePath injection.
+ *
+ * 6. UPGRADE: marked v4 → v17 migration
  *    - Using Marked class instance instead of global marked
  *    - marked-highlight extension for syntax highlighting
- *    - marked-gfm-heading-id extension for heading IDs
+ *    - Custom gfm-heading-id fork for heading IDs (see ./gfm-heading-id/)
  *    - Token-based renderer API (token object instead of separate params)
+ *
+ * 7. REFACTOR: Shared utilities extracted to ./html.utils.ts
+ *    - escapeHtml, decodeHtmlEntities, stripHtmlTags
  * ============================================================================
  */
 export class JekyllMarkdownParser {
 
   private marked: Marked;
 
-  constructor(private baseUrl: string) {
+  /**
+   * @param baseUrl - Base URL for images (e.g., '%%MARKDOWN_BASE_URL%%/blog/my-slug/')
+   * @param linkBasePath - Absolute path for links (e.g., '/blog/my-slug')
+   */
+  constructor(
+    private baseUrl: string,
+    private linkBasePath: string
+  ) {
     this.marked = this.createMarkedInstance();
   }
 
@@ -70,12 +146,17 @@ export class JekyllMarkdownParser {
 
   /**
    * Check if a URL is absolute (should not be transformed).
-   * Absolute URLs include: https://, http://, data:, //, assets/, /
+   * Matches: protocols (mailto:, tel:, https:, etc.), protocol-relative (//),
+   * absolute paths (/), asset paths, and placeholder URLs.
    */
   private isAbsoluteUrl(url: string): boolean {
-    return url.startsWith('https://') || url.startsWith('http://') ||
-           url.startsWith('data:') || url.startsWith('//') ||
-           url.startsWith('assets/') || url.startsWith('/') ||
+    // Protocol pattern: word characters followed by colon (mailto:, tel:, https:, http:, ftp:, data:, etc.)
+    if (PROTOCOL_REGEX.test(url)) {
+      return true;
+    }
+    return url.startsWith('//') ||
+           url.startsWith('/') ||
+           url.startsWith('assets/') ||
            url.startsWith(MARKDOWN_BASE_URL_PLACEHOLDER);
   }
 
@@ -87,14 +168,49 @@ export class JekyllMarkdownParser {
   }
 
   /**
-   * Escape special HTML characters in attribute values.
+   * Generate a table of contents as Markdown from the document's headings.
+   * Only includes headings that appear AFTER the [[toc]] marker.
+   *
+   * @param markdown - The markdown content to extract headings from
+   * @returns Markdown list with links to headings, or empty string if no headings
    */
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  private generateToc(markdown: string): string {
+    // Split at marker - only parse content AFTER the marker
+    const parts = markdown.split(TOC_MARKER);
+    if (parts.length < 2) {
+      return '';
+    }
+
+    const contentAfterMarker = parts.slice(1).join(TOC_MARKER); // Handle multiple markers (edge case)
+
+    // Parse only the part after [[toc]] to collect headings
+    resetHeadings();
+    this.marked.parse(contentAfterMarker);
+    const headings = getHeadingList();
+
+    // Filter to h2, h3, and h4
+    const relevantHeadings = headings.filter(h => h.level >= 2 && h.level <= 4);
+
+    if (relevantHeadings.length === 0) {
+      return '';
+    }
+
+    // Warn about duplicate headings (would cause ID mismatch if also before marker)
+    const seenRaw = new Set<string>();
+    for (const h of relevantHeadings) {
+      if (seenRaw.has(h.raw)) {
+        console.warn(`WARNING: Duplicate heading "${h.raw}" - TOC links may not work correctly`);
+      }
+      seenRaw.add(h.raw);
+    }
+
+    // Generate markdown list
+    return relevantHeadings
+      .map(h => {
+        const indent = '  '.repeat(h.level - 2); // h2='', h3='  ', h4='    '
+        return `${indent}* [${h.text}](#${h.id})`;
+      })
+      .join('\n');
   }
 
   /**
@@ -115,10 +231,10 @@ export class JekyllMarkdownParser {
       src = this.baseUrl + this.normalizeRelativeUrl(token.href);
     }
 
-    const escapedAlt = this.escapeHtml(token.text);
+    const escapedAlt = escapeHtml(token.text);
 
     if (token.title) {
-      const escapedTitle = this.escapeHtml(token.title);
+      const escapedTitle = escapeHtml(token.title);
       const imgTag = `<img src="${src}" alt="${escapedAlt}" title="${escapedTitle}">`;
       return `<figure>${imgTag}<figcaption>${escapedTitle}</figcaption></figure>`;
     }
@@ -129,11 +245,38 @@ export class JekyllMarkdownParser {
   // Transform relative paths in raw HTML <img> tags to absolute URLs
   // Supports both double quotes (src="...") and single quotes (src='...')
   private transformRelativeImagePaths(html: string): string {
-    return html.replace(/<img([^>]*)\ssrc=(["'])([^"']+)\2/g, (match, attrs, quote, src) => {
+    return html.replace(IMG_SRC_REGEX, (match, attrs, quote, src) => {
       if (this.isAbsoluteUrl(src)) {
         return match;
       }
       return `<img${attrs} src=${quote}${this.baseUrl}${this.normalizeRelativeUrl(src)}${quote}`;
+    });
+  }
+
+  /**
+   * Transform relative links to absolute paths.
+   * Fixes <base href="/"> issue where #anchor resolves to /#anchor.
+   *
+   * Uses path.posix.resolve() for proper relative path resolution:
+   * - #section → /blog/my-slug#section
+   * - ../other-slug → /blog/other-slug
+   * - ../other-slug#section → /blog/other-slug#section
+   */
+  private transformRelativeLinks(html: string): string {
+    return html.replace(ANCHOR_HREF_REGEX, (match, attrs, quote, href) => {
+      if (this.isAbsoluteUrl(href)) {
+        return match;
+      }
+
+      const hasHash = href.includes('#');
+      const [pathPart, hash] = hasHash ? href.split('#') : [href, ''];
+
+      const resolved = pathPart
+        ? path.resolve(this.linkBasePath + '/', pathPart)
+        : this.linkBasePath;
+
+      const newHref = hasHash ? resolved + '#' + hash : resolved;
+      return `<a${attrs} href=${quote}${newHref}${quote}`;
     });
   }
 
@@ -163,9 +306,24 @@ export class JekyllMarkdownParser {
     return { markdown, yaml };
   }
 
-  private compileMarkdown(markdown: string): string {
-    const html = this.marked.parse(markdown) as string;
-    return this.transformRelativeImagePaths(html);
+  private compileMarkdown(markdown: string): { html: string; headingIds: string[] } {
+    // Generate TOC if marker is present
+    // Note: This parses twice when TOC is present - once to collect headings, once for final HTML.
+    // This is intentional: we need heading data before generating TOC, but TOC must be in the
+    // document before final parsing. The overhead is minimal for typical blog post sizes.
+    let processedMarkdown = markdown;
+    if (markdown.includes(TOC_MARKER)) {
+      const toc = this.generateToc(markdown);
+      processedMarkdown = markdown.replace(TOC_MARKER, toc);
+    }
+
+    // Reset headings for clean state (generateToc may have populated them)
+    resetHeadings();
+    const html = this.marked.parse(processedMarkdown) as string;
+    const headingIds = getHeadingList().map(h => h.id);
+    const withImages = this.transformRelativeImagePaths(html);
+    const finalHtml = this.transformRelativeLinks(withImages);
+    return { html: finalHtml, headingIds };
   }
 
   private parseYaml(yaml: string): Record<string, unknown> {
@@ -178,19 +336,13 @@ export class JekyllMarkdownParser {
 
   public parse(jekyllMarkdown: string): {
     html: string;
-    yaml: string;
     parsedYaml: Record<string, unknown>;
-    markdown: string;
+    headingIds: string[];
   } {
     const { yaml, markdown } = this.separate(jekyllMarkdown);
     const parsedYaml = this.parseYaml(yaml);
-    const html = this.compileMarkdown(markdown);
+    const { html, headingIds } = this.compileMarkdown(markdown);
 
-    return {
-      html,
-      markdown,
-      parsedYaml,
-      yaml
-    };
+    return { html, parsedYaml, headingIds };
   }
 }
