@@ -73,6 +73,9 @@ describe('makeLightBlogList', () => {
           darkenHeader: true,
           keywords: ['angular', 'test'],
           bio: 'Some bio',
+          bioHeading: 'About the authors',
+          bio2: 'Second author bio',
+          bio2Heading: 'About the second author',
           sticky: true,
         },
       }),
@@ -94,6 +97,9 @@ describe('makeLightBlogList', () => {
     expect(Object.hasOwn(meta, 'darkenHeader')).toBe(false);
     expect(Object.hasOwn(meta, 'keywords')).toBe(false);
     expect(Object.hasOwn(meta, 'bio')).toBe(false);
+    expect(Object.hasOwn(meta, 'bioHeading')).toBe(false);
+    expect(Object.hasOwn(meta, 'bio2')).toBe(false);
+    expect(Object.hasOwn(meta, 'bio2Heading')).toBe(false);
     expect(Object.hasOwn(meta, 'sticky')).toBe(false);
   });
 

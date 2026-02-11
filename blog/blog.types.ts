@@ -38,7 +38,9 @@ export interface BlogEntryFullMeta extends BlogEntryMeta {
   // Optional fields
   lastModified?: string;
   bio?: string;
+  bioHeading?: string;
   bio2?: string;
+  bio2Heading?: string;
   keywords?: string[];
 }
 
