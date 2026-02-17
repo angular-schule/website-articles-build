@@ -112,8 +112,20 @@ export async function markdownToEntry<T extends EntryBase>(
   // Transform header from string (YAML) to object with dimensions
   if (typeof meta.header === 'string') {
     const url = meta.header;
-    const imagePath = path.join(blogPostsFolder, folder, meta.header);
-    const { width, height } = await getImageDimensions(imagePath);
+    let width: number;
+    let height: number;
+
+    if (typeof meta.headerWidth === 'number' && typeof meta.headerHeight === 'number') {
+      // Use manually provided dimensions (e.g. for video formats unsupported by image-size)
+      width = meta.headerWidth;
+      height = meta.headerHeight;
+      delete meta.headerWidth;
+      delete meta.headerHeight;
+    } else {
+      const imagePath = path.join(blogPostsFolder, folder, meta.header);
+      ({ width, height } = await getImageDimensions(imagePath));
+    }
+
     meta.header = { url, width, height };
   }
 

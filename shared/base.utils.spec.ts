@@ -255,6 +255,25 @@ describe('base.utils', () => {
       )).rejects.toThrow();
     });
 
+    it('should use headerWidth/headerHeight when provided instead of image-size', async () => {
+      const markdown = '---\ntitle: Test\npublished: 2024-01-01\nheader: header.webm\nheaderWidth: 800\nheaderHeight: 620\n---\nContent';
+
+      const result = await markdownToEntry<EntryBase>(
+        markdown,
+        'test-entry',
+        'https://example.com/',
+        '/tmp',
+        '/blog/test-entry'
+      );
+
+      // header should be transformed to object with manual dimensions
+      const header = (result.meta as any).header;
+      expect(header).toEqual({ url: 'header.webm', width: 800, height: 620 });
+      // headerWidth/headerHeight should be removed from meta
+      expect((result.meta as any).headerWidth).toBeUndefined();
+      expect((result.meta as any).headerHeight).toBeUndefined();
+    });
+
     it('should convert emoji shortcodes to unicode emojis', async () => {
       const markdown = '---\ntitle: Test\npublished: 2024-01-01\n---\n\nHello :smile: World :rocket:';
 
