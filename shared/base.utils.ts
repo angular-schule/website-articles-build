@@ -59,9 +59,11 @@ export async function copyEntriesToDist<T extends { slug: string }>(
  * @returns negative if a comes first, positive if b comes first
  */
 function compareEntries(a: EntryBase, b: EntryBase): number {
-  // 1. Sticky entries first
-  if (a.meta.sticky !== b.meta.sticky) {
-    return a.meta.sticky ? -1 : 1;
+  // 1. Sticky entries first (treat undefined and false the same)
+  const aSticky = !!a.meta.sticky;
+  const bSticky = !!b.meta.sticky;
+  if (aSticky !== bSticky) {
+    return aSticky ? -1 : 1;
   }
   // 2. Then by date (newest first) - ISO 8601 strings sort lexicographically
   const dateCompare = b.meta.published.localeCompare(a.meta.published);
