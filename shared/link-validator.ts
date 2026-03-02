@@ -32,6 +32,9 @@ const linkRegistry: AnchorLink[] = [];
 // Regex to find href attributes with anchors: href="/blog/slug#anchor" or href="#anchor"
 const ANCHOR_LINK_REGEX = /<a[^>]*\shref=(["'])([^"']*#[^"']+)\1/g;
 
+// Regex to find manual HTML anchors: <a name="ssr"> or <a id="ssr">
+const HTML_ANCHOR_REGEX = /<a\s[^>]*?(?:name|id)=(["'])([^"']+)\1[^>]*>/g;
+
 /**
  * Extract all anchor links from HTML using matchAll().
  * Safer than exec() loop with global regex - no shared state issues.
@@ -51,6 +54,19 @@ export function registerAnchors(entryPath: string, headingIds: string[]): void {
   const existing = anchorRegistry.get(entryPath) ?? new Set();
   for (const id of headingIds) {
     existing.add(id);
+  }
+  anchorRegistry.set(entryPath, existing);
+}
+
+/**
+ * Register manual HTML anchors (<a name="...">, <a id="...">) from rendered HTML.
+ * @param entryPath - Absolute path like "/blog/my-post"
+ * @param html - Rendered HTML to scan for manual anchors
+ */
+export function registerHtmlAnchors(entryPath: string, html: string): void {
+  const existing = anchorRegistry.get(entryPath) ?? new Set();
+  for (const match of html.matchAll(HTML_ANCHOR_REGEX)) {
+    existing.add(match[2]);
   }
   anchorRegistry.set(entryPath, existing);
 }

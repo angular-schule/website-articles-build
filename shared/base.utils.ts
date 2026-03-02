@@ -6,7 +6,7 @@ import { copy, remove, writeJson, mkdirp } from 'fs-extra';
 
 import { JekyllMarkdownParser } from './jekyll-markdown-parser';
 import { EntryBase, ImageDimensions } from './base.types';
-import { registerAnchors, registerLinks } from './link-validator';
+import { registerAnchors, registerHtmlAnchors, registerLinks } from './link-validator';
 
 const README_FILE = 'README.md';
 const ENTRY_FILE = 'entry.json';
@@ -98,6 +98,7 @@ export async function markdownToEntry<T extends EntryBase>(
 
   // Register anchors and links for validation
   registerAnchors(linkBasePath, headingIds);
+  registerHtmlAnchors(linkBasePath, html);
   registerLinks(linkBasePath, html);
 
   const meta: Record<string, unknown> = parsedYaml;

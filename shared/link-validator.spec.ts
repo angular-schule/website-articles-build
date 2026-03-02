@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   registerAnchors,
+  registerHtmlAnchors,
   registerLinks,
   validateLinks,
   resetValidator,
@@ -38,6 +39,34 @@ describe('link-validator', () => {
       expect(getAnchors('/blog/post-1')!.has('intro')).toBe(true);
       expect(getAnchors('/blog/post-1')!.has('fazit')).toBe(false);
       expect(getAnchors('/blog/post-2')!.has('fazit')).toBe(true);
+    });
+  });
+
+  describe('registerHtmlAnchors', () => {
+    it('should register <a name="..."> as anchors', () => {
+      registerHtmlAnchors('/material/i18n', '<a name="ssr"></a>');
+
+      const anchors = getAnchors('/material/i18n');
+      expect(anchors).toBeDefined();
+      expect(anchors!.has('ssr')).toBe(true);
+    });
+
+    it('should register <a id="..."> as anchors', () => {
+      registerHtmlAnchors('/blog/post', '<a id="custom-anchor"></a>');
+
+      const anchors = getAnchors('/blog/post');
+      expect(anchors!.has('custom-anchor')).toBe(true);
+    });
+
+    it('should validate links against manual HTML anchors', () => {
+      const html = '<a name="ssr"></a>';
+      registerHtmlAnchors('/material/i18n', html);
+
+      const linkHtml = '<a href="/material/i18n#ssr">Link</a>';
+      registerLinks('/blog/post', linkHtml);
+
+      const result = validateLinks();
+      expect(result.valid).toBe(true);
     });
   });
 
