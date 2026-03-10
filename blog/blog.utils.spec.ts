@@ -91,7 +91,7 @@ describe('makeLightBlogList', () => {
     expect(meta.published).toBe(publishedDate);
     expect(meta.language).toBe('de');
     expect(meta.header).toEqual({ url: 'img.jpg', width: 100, height: 50 });
-    expect(Object.hasOwn(meta, 'sticky')).toBe(true);
+    expect(meta.sticky).toBe(true);
 
     // These should NOT be included in light version
     expect(Object.hasOwn(meta, 'hidden')).toBe(false);
