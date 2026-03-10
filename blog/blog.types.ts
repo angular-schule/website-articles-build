@@ -13,6 +13,7 @@ export interface BlogEntryMeta {
   mail: string;
   published: string;
   language: string;
+  sticky?: boolean;
   header?: ImageDimensions & { url: string };
   // Optional fields (only included if present)
   author2?: string;
