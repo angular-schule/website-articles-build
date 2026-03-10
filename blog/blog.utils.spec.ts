@@ -91,6 +91,7 @@ describe('makeLightBlogList', () => {
     expect(meta.published).toBe(publishedDate);
     expect(meta.language).toBe('de');
     expect(meta.header).toEqual({ url: 'img.jpg', width: 100, height: 50 });
+    expect(Object.hasOwn(meta, 'sticky')).toBe(true);
 
     // These should NOT be included in light version
     expect(Object.hasOwn(meta, 'hidden')).toBe(false);
@@ -100,7 +101,6 @@ describe('makeLightBlogList', () => {
     expect(Object.hasOwn(meta, 'bioHeading')).toBe(false);
     expect(Object.hasOwn(meta, 'bio2')).toBe(false);
     expect(Object.hasOwn(meta, 'bio2Heading')).toBe(false);
-    expect(Object.hasOwn(meta, 'sticky')).toBe(false);
   });
 
   it('should include author2 and mail2 if present', () => {
