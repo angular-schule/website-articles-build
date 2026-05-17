@@ -16,6 +16,12 @@ export interface EntryMetaBase {
   lastModified?: string;
   hidden?: boolean;
   sticky?: boolean;
+  /**
+   * Optional manual sort key. Entries with a sortKey come first,
+   * sorted ascending. Entries without a sortKey fall back to the
+   * default order (sticky, then published date).
+   */
+  sortKey?: number;
 }
 
 export interface EntryBase {
