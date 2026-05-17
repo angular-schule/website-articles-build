@@ -416,5 +416,60 @@ describe('base.utils', () => {
       expect(result[1].slug).toBe('mmm-post');
       expect(result[2].slug).toBe('aaa-post');
     });
+
+    it('should sort entries with sortKey ascending before entries without sortKey', async () => {
+      const entries = [
+        { dir: 'no-key-new', date: '2025-01-01', sortKey: undefined as number | undefined },
+        { dir: 'key-3', date: '2020-01-01', sortKey: 3 },
+        { dir: 'key-1', date: '2020-01-01', sortKey: 1 },
+        { dir: 'no-key-old', date: '2020-06-01', sortKey: undefined },
+        { dir: 'key-2', date: '2020-01-01', sortKey: 2 },
+      ];
+
+      for (const e of entries) {
+        const entryDir = path.join(testDir, e.dir);
+        await fs.mkdir(entryDir, { recursive: true });
+        const sortKeyLine = typeof e.sortKey === 'number' ? `sortKey: ${e.sortKey}\n` : '';
+        await fs.writeFile(
+          path.join(entryDir, 'README.md'),
+          `---\ntitle: ${e.dir}\npublished: ${e.date}\n${sortKeyLine}---\nContent`
+        );
+      }
+
+      const result = await getEntryList<EntryBase>(testDir, 'https://example.com/');
+
+      expect(result).toHaveLength(5);
+      // sortKey entries first, ascending
+      expect(result[0].slug).toBe('key-1');
+      expect(result[1].slug).toBe('key-2');
+      expect(result[2].slug).toBe('key-3');
+      // Then entries without sortKey, by published date (newest first)
+      expect(result[3].slug).toBe('no-key-new');
+      expect(result[4].slug).toBe('no-key-old');
+    });
+
+    it('should rank sortKey above sticky', async () => {
+      const entries = [
+        { dir: 'sticky-no-key', date: '2025-01-01', sortKey: undefined as number | undefined, sticky: true },
+        { dir: 'key-5', date: '2020-01-01', sortKey: 5, sticky: false },
+      ];
+
+      for (const e of entries) {
+        const entryDir = path.join(testDir, e.dir);
+        await fs.mkdir(entryDir, { recursive: true });
+        const sortKeyLine = typeof e.sortKey === 'number' ? `sortKey: ${e.sortKey}\n` : '';
+        const stickyLine = e.sticky ? 'sticky: true\n' : '';
+        await fs.writeFile(
+          path.join(entryDir, 'README.md'),
+          `---\ntitle: ${e.dir}\npublished: ${e.date}\n${sortKeyLine}${stickyLine}---\nContent`
+        );
+      }
+
+      const result = await getEntryList<EntryBase>(testDir, 'https://example.com/');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].slug).toBe('key-5');
+      expect(result[1].slug).toBe('sticky-no-key');
+    });
   });
 });

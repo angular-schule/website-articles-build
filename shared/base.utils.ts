@@ -55,20 +55,36 @@ export async function copyEntriesToDist<T extends { slug: string }>(
 }
 
 /**
- * Compare two entries for sorting (newest first, sticky on top).
+ * Compare two entries for sorting.
+ *
+ * Order of criteria:
+ * 1. sortKey: entries with a sortKey come first, sorted ascending.
+ * 2. Sticky: sticky entries come before non-sticky.
+ * 3. Published date (newest first).
+ * 4. Slug (descending) as tiebreaker.
+ *
  * @returns negative if a comes first, positive if b comes first
  */
 function compareEntries(a: EntryBase, b: EntryBase): number {
-  // 1. Sticky entries first (treat undefined and false the same)
+  // 1. sortKey: entries with a sortKey come first, sorted ascending
+  const aHasKey = typeof a.meta.sortKey === 'number';
+  const bHasKey = typeof b.meta.sortKey === 'number';
+  if (aHasKey && bHasKey) {
+    return a.meta.sortKey! - b.meta.sortKey!;
+  }
+  if (aHasKey !== bHasKey) {
+    return aHasKey ? -1 : 1;
+  }
+  // 2. Sticky entries first (treat undefined and false the same)
   const aSticky = !!a.meta.sticky;
   const bSticky = !!b.meta.sticky;
   if (aSticky !== bSticky) {
     return aSticky ? -1 : 1;
   }
-  // 2. Then by date (newest first) - ISO 8601 strings sort lexicographically
+  // 3. Then by date (newest first) - ISO 8601 strings sort lexicographically
   const dateCompare = b.meta.published.localeCompare(a.meta.published);
   if (dateCompare !== 0) return dateCompare;
-  // 3. Slug as tiebreaker (descending)
+  // 4. Slug as tiebreaker (descending)
   return b.slug.localeCompare(a.slug);
 }
 
