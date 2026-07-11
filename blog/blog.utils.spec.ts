@@ -92,11 +92,13 @@ describe('makeLightBlogList', () => {
     expect(meta.language).toBe('de');
     expect(meta.header).toEqual({ url: 'img.jpg', width: 100, height: 50 });
     expect(meta.sticky).toBe(true);
+    // keywords ARE included in the light version so that consumers
+    // can filter the list without loading every entry.json
+    expect(meta.keywords).toEqual(['angular', 'test']);
 
     // These should NOT be included in light version
     expect(Object.hasOwn(meta, 'hidden')).toBe(false);
     expect(Object.hasOwn(meta, 'darkenHeader')).toBe(false);
-    expect(Object.hasOwn(meta, 'keywords')).toBe(false);
     expect(Object.hasOwn(meta, 'bio')).toBe(false);
     expect(Object.hasOwn(meta, 'bioHeading')).toBe(false);
     expect(Object.hasOwn(meta, 'bio2')).toBe(false);

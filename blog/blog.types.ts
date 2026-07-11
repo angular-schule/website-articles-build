@@ -13,6 +13,9 @@ export interface BlogEntryMeta {
   mail: string;
   published: string;
   language: string;
+  /** Frontmatter-Keywords — im Light-Meta enthalten, damit Konsumenten
+   *  die Liste ohne entry.json filtern können. */
+  keywords?: string[];
   sticky?: boolean;
   header?: ImageDimensions & { url: string };
   // Optional fields (only included if present)

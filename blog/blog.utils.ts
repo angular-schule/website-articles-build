@@ -18,6 +18,7 @@ export function makeLightBlogList(fullList: BlogEntryFull[]): BlogEntry[] {
         },
       };
 
+      if (entry.meta.keywords?.length) { result.meta.keywords = entry.meta.keywords; }
       if (entry.meta.sticky) { result.meta.sticky = entry.meta.sticky; }
       if (entry.meta.author2) { result.meta.author2 = entry.meta.author2; }
       if (entry.meta.mail2) { result.meta.mail2 = entry.meta.mail2; }
