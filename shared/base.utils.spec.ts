@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import sharp from 'sharp';
 import { readMarkdownFile, readFolders, getImageDimensions, copyEntriesToDist, getEntryList, markdownToEntry } from './base.utils';
 import { EntryBase } from './base.types';
 import * as fs from 'fs/promises';
@@ -124,30 +125,39 @@ describe('base.utils', () => {
       await fs.rm(testDir, { recursive: true, force: true });
     });
 
-    it('should copy entry folder to dist and create entry.json', async () => {
-      // Create source entry
+    it('should copy entry, optimize images to webp, and rewrite references', async () => {
+      // Create source entry with a real PNG (sharp needs a valid image).
       const entrySlug = 'test-post';
       await fs.mkdir(path.join(sourceDir, entrySlug));
       await fs.writeFile(path.join(sourceDir, entrySlug, 'README.md'), '# Test');
-      await fs.writeFile(path.join(sourceDir, entrySlug, 'image.png'), 'fake-image');
+      await sharp({ create: { width: 120, height: 80, channels: 3, background: { r: 10, g: 20, b: 30 } } })
+        .png()
+        .toFile(path.join(sourceDir, entrySlug, 'image.png'));
 
-      const entries = [{ slug: entrySlug, html: '<p>Test</p>', meta: { title: 'Test' } }];
+      const entries = [{
+        slug: entrySlug,
+        html: '<p><img src="%%URL%%/blog/test-post/image.png"></p>',
+        meta: { title: 'Test', header: { url: 'image.png', width: 120, height: 80 } },
+      }];
       await copyEntriesToDist(entries, sourceDir, distDir);
 
-      // Check entry.json was created
+      // entry.json created; html + header references rewritten to webp
       const entryJson = JSON.parse(
         await fs.readFile(path.join(distDir, entrySlug, 'entry.json'), 'utf8')
       );
       expect(entryJson.slug).toBe(entrySlug);
-      expect(entryJson.html).toBe('<p>Test</p>');
+      expect(entryJson.html).toContain('image.webp');
+      expect(entryJson.html).not.toContain('image.png');
+      expect(entryJson.meta.header.url).toBe('image.webp');
+      expect(entryJson.meta.header.width).toBe(120);
+      expect(entryJson.meta.header.height).toBe(80);
 
-      // Check README.md was removed
-      await expect(fs.access(path.join(distDir, entrySlug, 'README.md')))
-        .rejects.toThrow();
+      // README.md removed
+      await expect(fs.access(path.join(distDir, entrySlug, 'README.md'))).rejects.toThrow();
 
-      // Check other files were copied
-      const imageContent = await fs.readFile(path.join(distDir, entrySlug, 'image.png'), 'utf8');
-      expect(imageContent).toBe('fake-image');
+      // webp generated, original png removed
+      await expect(fs.access(path.join(distDir, entrySlug, 'image.webp'))).resolves.toBeUndefined();
+      await expect(fs.access(path.join(distDir, entrySlug, 'image.png'))).rejects.toThrow();
     });
 
     it('should handle multiple entries', async () => {
