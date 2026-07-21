@@ -7,6 +7,7 @@ import { copy, remove, writeJson, mkdirp } from 'fs-extra';
 import { JekyllMarkdownParser } from './jekyll-markdown-parser';
 import { EntryBase, ImageDimensions } from './base.types';
 import { registerAnchors, registerHtmlAnchors, registerLinks } from './link-validator';
+import { optimizeImagesInFolder, rewriteImageReferences } from './image-optimizer';
 
 const README_FILE = 'README.md';
 const ENTRY_FILE = 'entry.json';
@@ -34,11 +35,17 @@ export async function getImageDimensions(imagePath: string): Promise<ImageDimens
   return { width, height };
 }
 
-/** Copy folder entries to dist, remove source file, and write entry.json */
+/**
+ * Copy folder entries to dist, optimize their images to WebP, remove the README,
+ * and write entry.json.
+ *
+ * Image optimization mutates `entry.meta.header` (url + dimensions) and `entry.html`
+ * in place, so a `list.json` generated AFTER this call reflects the WebP references.
+ */
 export async function copyEntriesToDist<T extends { slug: string }>(
   entries: T[],
   sourceFolder: string,
-  distFolder: string
+  distFolder: string,
 ): Promise<void> {
   // Process sequentially to fail fast on first error
   for (const entry of entries) {
@@ -47,6 +54,10 @@ export async function copyEntriesToDist<T extends { slug: string }>(
     await mkdirp(entryDistFolder);
     await copy(path.join(sourceFolder, entry.slug), entryDistFolder);
     await remove(path.join(entryDistFolder, README_FILE));
+
+    // jpg/png → resized WebP (in dist); rewrite header + html references to it.
+    const optimized = await optimizeImagesInFolder(entryDistFolder);
+    rewriteImageReferences(entry as { html?: unknown; meta?: unknown }, optimized);
 
     const entryJsonPath = path.join(entryDistFolder, ENTRY_FILE);
     await writeJson(entryJsonPath, entry);

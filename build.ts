@@ -35,9 +35,11 @@ async function buildBlog(): Promise<void> {
 
   const rawEntryList = await getEntryList<BlogEntryFull>(BLOG_FOLDER, `${MARKDOWN_BASE_URL_PLACEHOLDER}/blog/`);
   const entryList = applyBlogDefaults(rawEntryList);
+  // Copy + optimize images first: this rewrites header/html references to WebP in
+  // place, so the light list.json (written afterwards) references the WebP too.
+  await copyEntriesToDist(entryList, BLOG_FOLDER, blogDist);
   const blogListLight = makeLightBlogList(entryList);
   await writeJson(path.join(blogDist, LIST_FILE), blogListLight);
-  await copyEntriesToDist(entryList, BLOG_FOLDER, blogDist);
   console.log(`Blog: ${entryList.length} entries processed`);
 }
 
@@ -52,9 +54,9 @@ async function buildMaterial(): Promise<void> {
   await mkdirp(materialDist);
 
   const materialList = await getEntryList<MaterialEntry>(MATERIAL_FOLDER, `${MARKDOWN_BASE_URL_PLACEHOLDER}/material/`);
+  await copyEntriesToDist(materialList, MATERIAL_FOLDER, materialDist);
   const materialListLight = makeLightList(materialList);
   await writeJson(path.join(materialDist, LIST_FILE), materialListLight);
-  await copyEntriesToDist(materialList, MATERIAL_FOLDER, materialDist);
   console.log(`Material: ${materialList.length} entries processed`);
 }
 

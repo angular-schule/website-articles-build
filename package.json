@@ -13,13 +13,14 @@
   "description": "",
   "dependencies": {
     "fs-extra": "^11.2.0",
+    "github-slugger": "^2.0.0",
     "highlight.js": "^11.10.0",
     "image-size": "^2.0.2",
     "js-yaml": "^4.1.0",
-    "github-slugger": "^2.0.0",
     "marked": "^17.0.1",
     "marked-highlight": "^2.2.3",
-    "node-emoji": "^2.1.3"
+    "node-emoji": "^2.1.3",
+    "sharp": "^0.35.3"
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.57.1",
