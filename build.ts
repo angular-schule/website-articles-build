@@ -9,6 +9,7 @@ import { makeLightBlogList } from './blog/blog.utils';
 import { makeLightList } from './shared/list.utils';
 import { MARKDOWN_BASE_URL_PLACEHOLDER } from './shared/jekyll-markdown-parser';
 import { printValidationResults } from './shared/link-validator';
+import { publishStandardSite } from './standard-site/publish';
 
 const DIST_FOLDER = '../dist';
 const BLOG_FOLDER = '../blog';
@@ -28,7 +29,7 @@ function applyBlogDefaults(entries: BlogEntryFull[]): BlogEntryFull[] {
   }));
 }
 
-async function buildBlog(): Promise<void> {
+async function buildBlog(): Promise<BlogEntryFull[]> {
   console.log('Building blog...');
   const blogDist = path.join(DIST_FOLDER, 'blog');
   await mkdirp(blogDist);
@@ -41,6 +42,7 @@ async function buildBlog(): Promise<void> {
   const blogListLight = makeLightBlogList(entryList);
   await writeJson(path.join(blogDist, LIST_FILE), blogListLight);
   console.log(`Blog: ${entryList.length} entries processed`);
+  return entryList;
 }
 
 async function buildMaterial(): Promise<void> {
@@ -65,12 +67,15 @@ async function build(): Promise<void> {
   await remove(DIST_FOLDER);
   await mkdirp(DIST_FOLDER);
 
-  await buildBlog();
+  const blogEntries = await buildBlog();
   await buildMaterial();
 
   // Validate all anchor links (warnings only, does not fail build)
   console.log('\nValidating anchor links...');
   printValidationResults();
+
+  // Publish standard.site records (no-op unless configured via env)
+  await publishStandardSite(blogEntries);
 
   console.log('\nBuild complete!');
 }

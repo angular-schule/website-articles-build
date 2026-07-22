@@ -2,7 +2,7 @@
   "name": "website-articles-build",
   "version": "1.0.0",
   "scripts": {
-    "build": "tsx build.ts",
+    "build": "tsx --env-file-if-exists=.env build.ts",
     "watch": "nodemon --watch ../blog --watch ../material -e md,jpg,png,svg --exec 'npm run build'",
     "test": "vitest run",
     "test:watch": "vitest",
