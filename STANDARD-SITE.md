@@ -72,6 +72,10 @@ article-data build runs so the URL resolves.
   place — never duplicates.
 - Prunes: document records whose slug is no longer a live (non-hidden) post are
   deleted.
+- Cover images: an entry's optimized header image is uploaded as the document
+  `coverImage` blob (from the built `dist/<contentType>/<slug>/` folder). Sources
+  without headers (e.g. material chapters) simply omit it. A missing, oversized
+  (>1MB), or unsupported header is non-fatal (warns and continues).
 - `validate: false` is used on `putRecord` because a PDS does not natively know
   third-party lexicons like `site.standard.*`.
 - Resilient: transient PDS responses (429, 5xx) are retried with backoff, and a
