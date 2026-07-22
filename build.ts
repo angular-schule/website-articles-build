@@ -80,7 +80,7 @@ async function build(): Promise<void> {
   // build/deploy, so it is caught and logged rather than thrown.
   try {
     await publishStandardSite([
-      { contentType: 'blog', entries: blogEntries },
+      { contentType: 'blog', entries: blogEntries, distDir: path.join(DIST_FOLDER, 'blog') },
       { contentType: 'material', entries: materialEntries },
     ]);
   } catch (error) {

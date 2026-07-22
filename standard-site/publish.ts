@@ -11,12 +11,14 @@
  * required config is absent the whole step is a no-op, keeping it opt-in.
  */
 import { readFile } from 'fs/promises';
+import * as path from 'path';
 
 import { EntryBase } from '../shared/base.types';
 import { extractFirstBigParagraph } from '../shared/list.utils';
 import { stripHtmlTags } from '../shared/html.utils';
 import {
   AtpSession,
+  BlobRef,
   createSession,
   deleteRecord,
   listRecords,
@@ -29,11 +31,24 @@ const PUBLICATION_COLLECTION = 'site.standard.publication';
 const DOCUMENT_COLLECTION = 'site.standard.document';
 const PUBLICATION_RKEY = 'self';
 
+/**
+ * standard.site recommends the document coverImage blob stays below 1MB. The
+ * optimized WebP headers are well under this; guard so an outlier is skipped
+ * rather than rejected by the PDS.
+ */
+const MAX_COVER_BYTES = 1_000_000;
+
 /** A group of content entries published under a common URL path prefix. */
 export interface DocumentSource {
   /** URL path segment, e.g. 'blog' or 'material'. */
   contentType: string;
   entries: EntryBase[];
+  /**
+   * Directory holding the built per-slug folders (e.g. dist/blog), used to
+   * locate an entry's optimized header image for the coverImage blob. Omit
+   * when a source has no header images (e.g. material chapters).
+   */
+  distDir?: string;
 }
 
 interface StandardSiteConfig {
@@ -96,6 +111,59 @@ async function loadIconBytes(source: string): Promise<Uint8Array> {
     return new Uint8Array(await response.arrayBuffer());
   }
   return new Uint8Array(await readFile(source));
+}
+
+/** Image MIME type for a header file, or null for an unsupported extension. */
+function coverMimeType(filename: string): string | null {
+  switch (filename.split('.').pop()?.toLowerCase()) {
+    case 'png': return 'image/png';
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'webp': return 'image/webp';
+    case 'gif': return 'image/gif';
+    default: return null; // e.g. video headers (.webm) — no cover image
+  }
+}
+
+/**
+ * Upload an entry's optimized header image as the document coverImage blob.
+ * Returns the blob ref, or undefined when there is no usable header. Non-fatal:
+ * a missing/oversized/broken image is logged and skipped, never thrown.
+ */
+async function loadCoverBlob(
+  config: StandardSiteConfig,
+  session: AtpSession,
+  source: DocumentSource,
+  entry: EntryBase,
+): Promise<BlobRef | undefined> {
+  const header = (entry.meta as { header?: { url?: string } }).header;
+  if (!source.distDir || !header?.url) {
+    return undefined;
+  }
+  const mimeType = coverMimeType(header.url);
+  if (!mimeType) {
+    return undefined;
+  }
+
+  const filePath = path.join(source.distDir, entry.slug, header.url);
+  try {
+    const bytes = new Uint8Array(await readFile(filePath));
+    if (bytes.byteLength > MAX_COVER_BYTES) {
+      console.warn(`standard.site: skipping oversized cover for ${entry.slug} (${bytes.byteLength} bytes)`);
+      return undefined;
+    }
+    if (config.dryRun) {
+      console.log(`  [dry-run] would upload cover image for ${entry.slug} (${header.url})`);
+      return undefined;
+    }
+    return await uploadBlob(config.pds, session, bytes, mimeType);
+  } catch (error) {
+    console.warn(
+      `standard.site: skipping cover for ${entry.slug} (${filePath}):`,
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  }
 }
 
 /** Normalise a YAML date (ISO string or date-only) to an ISO 8601 datetime. */
@@ -208,7 +276,7 @@ export async function publishStandardSite(sources: DocumentSource[]): Promise<vo
 
   // Flatten all non-hidden entries across sources. rkey is the slug; blog and
   // material slugs do not overlap, but guard against a collision to be safe.
-  const documents: { entry: EntryBase; contentType: string }[] = [];
+  const documents: { entry: EntryBase; source: DocumentSource }[] = [];
   const seen = new Set<string>();
   for (const source of sources) {
     for (const entry of source.entries) {
@@ -219,7 +287,7 @@ export async function publishStandardSite(sources: DocumentSource[]): Promise<vo
         throw new Error(`standard.site: duplicate document rkey "${entry.slug}" across content types`);
       }
       seen.add(entry.slug);
-      documents.push({ entry, contentType: source.contentType });
+      documents.push({ entry, source });
     }
   }
 
@@ -234,14 +302,20 @@ export async function publishStandardSite(sources: DocumentSource[]): Promise<vo
 
   const publicationUri = await upsertPublication(config, session);
 
-  for (const { entry, contentType } of documents) {
+  for (const { entry, source } of documents) {
+    const record = buildDocumentRecord(entry, source.contentType, publicationUri);
+    const cover = await loadCoverBlob(config, session, source, entry);
+    if (cover) {
+      record.coverImage = cover;
+    }
+
     if (config.dryRun) {
-      console.log(`  [dry-run] would write document ${entry.slug} (${contentType})`);
+      console.log(`  [dry-run] would write document ${entry.slug} (${source.contentType})`);
     } else {
       await putRecord(config.pds, session, {
         collection: DOCUMENT_COLLECTION,
         rkey: entry.slug,
-        record: buildDocumentRecord(entry, contentType, publicationUri),
+        record,
       });
     }
   }
