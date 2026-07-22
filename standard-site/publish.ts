@@ -147,12 +147,18 @@ async function upsertPublication(
     record.description = config.description;
   }
 
-  if (config.icon) {
-    if (config.dryRun) {
-      console.log(`  [dry-run] would upload publication icon from ${config.icon}`);
-    } else {
+  if (config.icon && config.dryRun) {
+    console.log(`  [dry-run] would upload publication icon from ${config.icon}`);
+  } else if (config.icon) {
+    // Non-fatal: a missing/broken icon must not fail the whole publish.
+    try {
       const bytes = await loadIconBytes(config.icon);
       record.icon = await uploadBlob(config.pds, session, bytes, iconMimeType(config.icon));
+    } catch (error) {
+      console.warn(
+        `standard.site: skipping icon (${config.icon}):`,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
