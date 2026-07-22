@@ -1,11 +1,13 @@
 # standard.site publishing
 
-This build publishes the blog to the [standard.site](https://standard.site) AT
-Protocol lexicons so posts become discoverable on the decentralized social web:
+This build publishes the site to the [standard.site](https://standard.site) AT
+Protocol lexicons so content becomes discoverable on the decentralized social
+web:
 
-- one `site.standard.publication` record (rkey `self`) for the blog, and
-- one `site.standard.document` record per non-hidden post (rkey = the post
-  slug).
+- one `site.standard.publication` record (rkey `self`) for the site, and
+- one `site.standard.document` record per non-hidden content entry (rkey = the
+  slug), across every content type present — blog posts (`/blog/<slug>`) and,
+  where the site has them, material chapters (`/material/<slug>`).
 
 Records are written to a Bluesky/PDS account during `npm run build`
 (`standard-site/publish.ts`). The consuming website only serves the verification

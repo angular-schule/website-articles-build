@@ -1,13 +1,16 @@
 /**
- * Publishes the blog to the standard.site AT Protocol lexicons: one
+ * Publishes a site to the standard.site AT Protocol lexicons: one
  * site.standard.publication record and one site.standard.document record per
- * (non-hidden) blog post, written to the configured Bluesky/PDS account.
+ * (non-hidden) content entry, written to the configured Bluesky/PDS account.
+ *
+ * Content sources are generic (e.g. blog posts and material chapters); each is
+ * published under its own URL path prefix while sharing the document collection.
  *
  * Publication-agnostic: every account-specific value comes from the environment
  * (see readConfig), so the same shared build serves multiple websites. When the
  * required config is absent the whole step is a no-op, keeping it opt-in.
  */
-import { BlogEntryFull } from '../blog/blog.types';
+import { EntryBase } from '../shared/base.types';
 import { extractFirstBigParagraph } from '../shared/list.utils';
 import { stripHtmlTags } from '../shared/html.utils';
 import {
@@ -22,6 +25,13 @@ import {
 const PUBLICATION_COLLECTION = 'site.standard.publication';
 const DOCUMENT_COLLECTION = 'site.standard.document';
 const PUBLICATION_RKEY = 'self';
+
+/** A group of content entries published under a common URL path prefix. */
+export interface DocumentSource {
+  /** URL path segment, e.g. 'blog' or 'material'. */
+  contentType: string;
+  entries: EntryBase[];
+}
 
 interface StandardSiteConfig {
   pds: string;
@@ -64,7 +74,8 @@ function toIsoDateTime(value: string): string {
 }
 
 function buildDocumentRecord(
-  entry: BlogEntryFull,
+  entry: EntryBase,
+  contentType: string,
   publicationUri: string,
 ): Record<string, unknown> {
   const description = stripHtmlTags(extractFirstBigParagraph(entry.html)).trim();
@@ -72,7 +83,7 @@ function buildDocumentRecord(
     $type: DOCUMENT_COLLECTION,
     site: publicationUri,
     title: entry.meta.title,
-    path: `/blog/${entry.slug}`,
+    path: `/${contentType}/${entry.slug}`,
     publishedAt: toIsoDateTime(entry.meta.published),
     textContent: stripHtmlTags(entry.html),
   };
@@ -83,8 +94,10 @@ function buildDocumentRecord(
   if (entry.meta.lastModified) {
     record.updatedAt = toIsoDateTime(entry.meta.lastModified);
   }
-  if (entry.meta.keywords?.length) {
-    record.tags = entry.meta.keywords;
+  // keywords are blog-specific; present them as tags when available
+  const keywords = (entry.meta as { keywords?: string[] }).keywords;
+  if (keywords?.length) {
+    record.tags = keywords;
   }
 
   return record;
@@ -141,11 +154,28 @@ async function pruneDocuments(
   return pruned;
 }
 
-export async function publishStandardSite(entries: BlogEntryFull[]): Promise<void> {
+export async function publishStandardSite(sources: DocumentSource[]): Promise<void> {
   const config = readConfig();
   if (!config) {
     console.log('standard.site: not configured (BSKY_APP_PASSWORD/BSKY_HANDLE/STANDARD_SITE_URL), skipping');
     return;
+  }
+
+  // Flatten all non-hidden entries across sources. rkey is the slug; blog and
+  // material slugs do not overlap, but guard against a collision to be safe.
+  const documents: { entry: EntryBase; contentType: string }[] = [];
+  const seen = new Set<string>();
+  for (const source of sources) {
+    for (const entry of source.entries) {
+      if (entry.meta.hidden) {
+        continue;
+      }
+      if (seen.has(entry.slug)) {
+        throw new Error(`standard.site: duplicate document rkey "${entry.slug}" across content types`);
+      }
+      seen.add(entry.slug);
+      documents.push({ entry, contentType: source.contentType });
+    }
   }
 
   console.log(`standard.site: ${config.dryRun ? 'DRY RUN — ' : ''}publishing to ${config.url}`);
@@ -159,24 +189,23 @@ export async function publishStandardSite(entries: BlogEntryFull[]): Promise<voi
 
   const publicationUri = await upsertPublication(config, session);
 
-  const visibleEntries = entries.filter((entry) => !entry.meta.hidden);
-  for (const entry of visibleEntries) {
+  for (const { entry, contentType } of documents) {
     if (config.dryRun) {
-      console.log(`  [dry-run] would write document ${entry.slug}`);
+      console.log(`  [dry-run] would write document ${entry.slug} (${contentType})`);
     } else {
       await putRecord(config.pds, session, {
         collection: DOCUMENT_COLLECTION,
         rkey: entry.slug,
-        record: buildDocumentRecord(entry, publicationUri),
+        record: buildDocumentRecord(entry, contentType, publicationUri),
       });
     }
   }
 
-  const liveSlugs = new Set(visibleEntries.map((entry) => entry.slug));
+  const liveSlugs = new Set(documents.map((doc) => doc.entry.slug));
   const pruned = await pruneDocuments(config, session, liveSlugs);
 
   const verb = config.dryRun ? 'would publish' : 'published';
   console.log(
-    `standard.site: ${verb} 1 publication + ${visibleEntries.length} documents, ${config.dryRun ? 'would prune' : 'pruned'} ${pruned} stale`,
+    `standard.site: ${verb} 1 publication + ${documents.length} documents, ${config.dryRun ? 'would prune' : 'pruned'} ${pruned} stale`,
   );
 }

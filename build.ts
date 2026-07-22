@@ -45,10 +45,10 @@ async function buildBlog(): Promise<BlogEntryFull[]> {
   return entryList;
 }
 
-async function buildMaterial(): Promise<void> {
+async function buildMaterial(): Promise<MaterialEntry[]> {
   if (!existsSync(MATERIAL_FOLDER)) {
     console.log('No material folder found, skipping...');
-    return;
+    return [];
   }
 
   console.log('Building material...');
@@ -60,6 +60,7 @@ async function buildMaterial(): Promise<void> {
   const materialListLight = makeLightList(materialList);
   await writeJson(path.join(materialDist, LIST_FILE), materialListLight);
   console.log(`Material: ${materialList.length} entries processed`);
+  return materialList;
 }
 
 async function build(): Promise<void> {
@@ -68,14 +69,17 @@ async function build(): Promise<void> {
   await mkdirp(DIST_FOLDER);
 
   const blogEntries = await buildBlog();
-  await buildMaterial();
+  const materialEntries = await buildMaterial();
 
   // Validate all anchor links (warnings only, does not fail build)
   console.log('\nValidating anchor links...');
   printValidationResults();
 
   // Publish standard.site records (no-op unless configured via env)
-  await publishStandardSite(blogEntries);
+  await publishStandardSite([
+    { contentType: 'blog', entries: blogEntries },
+    { contentType: 'material', entries: materialEntries },
+  ]);
 
   console.log('\nBuild complete!');
 }
