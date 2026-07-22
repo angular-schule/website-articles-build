@@ -32,6 +32,7 @@ and angular-buch.com); each parent repo supplies its own config.
 | `STANDARD_SITE_NAME` | no | Publication name. Default: the handle. |
 | `STANDARD_SITE_DESCRIPTION` | no | Publication description. |
 | `STANDARD_SITE_EXPECTED_DID` | no | Abort if the logged-in DID differs (guards against a wrong account). |
+| `STANDARD_SITE_ICON` | no | Publication profile image (square ≥256×256, png/jpg/webp). An http(s) URL or a local file path; uploaded as a blob and set as the publication `icon`. |
 | `STANDARD_SITE_SHOW_IN_DISCOVER` | no | `false` to opt out of the discovery feed. Default `true`. |
 | `STANDARD_SITE_DRY_RUN` | no | `true` logs the records that would be written/pruned without touching the PDS. |
 

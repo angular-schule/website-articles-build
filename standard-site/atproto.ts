@@ -64,6 +64,37 @@ export async function putRecord(
   });
 }
 
+/** A blob reference as embedded in a record after uploadBlob. */
+export interface BlobRef {
+  $type: 'blob';
+  ref: { $link: string };
+  mimeType: string;
+  size: number;
+}
+
+/** Upload a binary blob to the repo; returns the blob ref to embed in a record. */
+export async function uploadBlob(
+  pds: string,
+  session: AtpSession,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<BlobRef> {
+  const response = await fetch(`${pds}/xrpc/com.atproto.repo.uploadBlob`, {
+    method: 'POST',
+    headers: {
+      'content-type': mimeType,
+      authorization: `Bearer ${session.accessJwt}`,
+    },
+    // undici accepts a Uint8Array body at runtime; the DOM BodyInit type doesn't list it.
+    body: bytes as unknown as BodyInit,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`XRPC uploadBlob failed: ${response.status} ${text}`);
+  }
+  return (JSON.parse(text) as { blob: BlobRef }).blob;
+}
+
 export async function deleteRecord(
   pds: string,
   session: AtpSession,
