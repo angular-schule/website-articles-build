@@ -75,11 +75,20 @@ async function build(): Promise<void> {
   console.log('\nValidating anchor links...');
   printValidationResults();
 
-  // Publish standard.site records (no-op unless configured via env)
-  await publishStandardSite([
-    { contentType: 'blog', entries: blogEntries },
-    { contentType: 'material', entries: materialEntries },
-  ]);
+  // Publish standard.site records (no-op unless configured via env). This is a
+  // secondary side-effect: a publish failure must never block the article-data
+  // build/deploy, so it is caught and logged rather than thrown.
+  try {
+    await publishStandardSite([
+      { contentType: 'blog', entries: blogEntries },
+      { contentType: 'material', entries: materialEntries },
+    ]);
+  } catch (error) {
+    console.error(
+      'standard.site: publishing failed (continuing build):',
+      error instanceof Error ? error.message : error,
+    );
+  }
 
   console.log('\nBuild complete!');
 }

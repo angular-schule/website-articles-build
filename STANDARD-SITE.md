@@ -32,7 +32,13 @@ and angular-buch.com); each parent repo supplies its own config.
 | `STANDARD_SITE_NAME` | no | Publication name. Default: the handle. |
 | `STANDARD_SITE_DESCRIPTION` | no | Publication description. |
 | `STANDARD_SITE_EXPECTED_DID` | no | Abort if the logged-in DID differs (guards against a wrong account). |
-| `STANDARD_SITE_ICON` | no | Publication profile image (square ≥256×256, png/jpg/webp). An http(s) URL or a local file path; uploaded as a blob and set as the publication `icon`. |
+| `STANDARD_SITE_ICON` | no | Publication profile image (square ≥256×256, png/jpg/webp). An http(s) URL or a local file path; uploaded as a blob and set as the publication `icon`. A missing/broken icon is non-fatal (warns and continues). |
+
+**Icon convention:** the icon is a website asset, not a shared-build asset. Put a
+square `standard-site-icon.png` in the consuming **website** repo's `public/` and
+point `STANDARD_SITE_ICON` at its deployed URL
+(e.g. `https://example.com/standard-site-icon.png`). Deploy the website before the
+article-data build runs so the URL resolves.
 | `STANDARD_SITE_SHOW_IN_DISCOVER` | no | `false` to opt out of the discovery feed. Default `true`. |
 | `STANDARD_SITE_DRY_RUN` | no | `true` logs the records that would be written/pruned without touching the PDS. |
 
@@ -68,6 +74,9 @@ and angular-buch.com); each parent repo supplies its own config.
   deleted.
 - `validate: false` is used on `putRecord` because a PDS does not natively know
   third-party lexicons like `site.standard.*`.
+- Resilient: transient PDS responses (429, 5xx) are retried with backoff, and a
+  publish failure is caught and logged rather than thrown — it never fails the
+  article-data build/deploy. Records catch up on the next successful build.
 
 ## Adding another website (e.g. angular-buch.com)
 
