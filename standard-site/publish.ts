@@ -10,6 +10,8 @@
  * (see readConfig), so the same shared build serves multiple websites. When the
  * required config is absent the whole step is a no-op, keeping it opt-in.
  */
+import { readFile } from 'fs/promises';
+
 import { EntryBase } from '../shared/base.types';
 import { extractFirstBigParagraph } from '../shared/list.utils';
 import { stripHtmlTags } from '../shared/html.utils';
@@ -20,6 +22,7 @@ import {
   listRecords,
   putRecord,
   rkeyFromUri,
+  uploadBlob,
 } from './atproto';
 
 const PUBLICATION_COLLECTION = 'site.standard.publication';
@@ -42,6 +45,8 @@ interface StandardSiteConfig {
   description?: string;
   expectedDid?: string;
   showInDiscover: boolean;
+  /** Publication icon: an http(s) URL or a local file path (png/jpg/webp). */
+  icon?: string;
   dryRun: boolean;
 }
 
@@ -64,8 +69,33 @@ function readConfig(): StandardSiteConfig | null {
     description: process.env.STANDARD_SITE_DESCRIPTION || undefined,
     expectedDid: process.env.STANDARD_SITE_EXPECTED_DID || undefined,
     showInDiscover: process.env.STANDARD_SITE_SHOW_IN_DISCOVER !== 'false',
+    icon: process.env.STANDARD_SITE_ICON || undefined,
     dryRun: process.env.STANDARD_SITE_DRY_RUN === 'true',
   };
+}
+
+/** Guess an image MIME type from a URL or file path. */
+function iconMimeType(source: string): string {
+  const ext = source.split('?')[0].split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'webp': return 'image/webp';
+    default: throw new Error(`standard.site: unsupported icon type ".${ext}" (${source})`);
+  }
+}
+
+/** Load icon bytes from an http(s) URL or a local file path. */
+async function loadIconBytes(source: string): Promise<Uint8Array> {
+  if (/^https?:\/\//i.test(source)) {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`standard.site: cannot fetch icon ${source}: ${response.status}`);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  return new Uint8Array(await readFile(source));
 }
 
 /** Normalise a YAML date (ISO string or date-only) to an ISO 8601 datetime. */
@@ -115,6 +145,21 @@ async function upsertPublication(
   };
   if (config.description) {
     record.description = config.description;
+  }
+
+  if (config.icon && config.dryRun) {
+    console.log(`  [dry-run] would upload publication icon from ${config.icon}`);
+  } else if (config.icon) {
+    // Non-fatal: a missing/broken icon must not fail the whole publish.
+    try {
+      const bytes = await loadIconBytes(config.icon);
+      record.icon = await uploadBlob(config.pds, session, bytes, iconMimeType(config.icon));
+    } catch (error) {
+      console.warn(
+        `standard.site: skipping icon (${config.icon}):`,
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   if (config.dryRun) {
