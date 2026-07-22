@@ -10,11 +10,45 @@ export interface AtpSession {
   accessJwt: string;
 }
 
+/** How many attempts (1 initial + retries) for a transient failure. */
+const MAX_ATTEMPTS = 4;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 429 (rate limit) and 5xx (server) responses are worth retrying. */
+function isTransientStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+/**
+ * fetch with retries + exponential backoff for transient conditions (network
+ * errors, 429, 5xx). A PDS blip like a 502 should not fail the whole build.
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url, init);
+    } catch (error) {
+      if (attempt >= MAX_ATTEMPTS) {
+        throw error;
+      }
+      await sleep(250 * 2 ** (attempt - 1));
+      continue;
+    }
+    if (isTransientStatus(response.status) && attempt < MAX_ATTEMPTS) {
+      await sleep(250 * 2 ** (attempt - 1));
+      continue;
+    }
+    return response;
+  }
+}
+
 async function xrpc<T>(
   url: string,
   init: RequestInit,
 ): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await fetchWithRetry(url, init);
   const text = await response.text();
   if (!response.ok) {
     throw new Error(`XRPC ${init.method} ${url} failed: ${response.status} ${text}`);
@@ -79,7 +113,7 @@ export async function uploadBlob(
   bytes: Uint8Array,
   mimeType: string,
 ): Promise<BlobRef> {
-  const response = await fetch(`${pds}/xrpc/com.atproto.repo.uploadBlob`, {
+  const response = await fetchWithRetry(`${pds}/xrpc/com.atproto.repo.uploadBlob`, {
     method: 'POST',
     headers: {
       'content-type': mimeType,
