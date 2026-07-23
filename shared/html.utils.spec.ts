@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripHtmlTags, decodeHtmlEntities, escapeHtml } from './html.utils';
+import { stripHtmlTags, decodeHtmlEntities, escapeHtml, ensureImageAlt } from './html.utils';
 
 describe('stripHtmlTags', () => {
   it('should return empty string for empty input', () => {
@@ -182,5 +182,44 @@ describe('escapeHtml and decodeHtmlEntities roundtrip', () => {
       const decoded = decodeHtmlEntities(escaped);
       expect(decoded).toBe(input);
     });
+  });
+});
+
+describe('ensureImageAlt', () => {
+  it('adds an empty alt to a raw <img> without alt', () => {
+    expect(ensureImageAlt('<img src="test.png">')).toBe('<img src="test.png" alt="">');
+  });
+
+  it('leaves an <img> that already has an alt untouched', () => {
+    expect(ensureImageAlt('<img src="test.png" alt="A cat">')).toBe('<img src="test.png" alt="A cat">');
+  });
+
+  it('leaves an <img> with an empty alt untouched', () => {
+    expect(ensureImageAlt('<img alt="" src="test.png">')).toBe('<img alt="" src="test.png">');
+  });
+
+  it('preserves a self-closing slash', () => {
+    expect(ensureImageAlt('<img src="test.png" />')).toBe('<img src="test.png" alt=""/>');
+  });
+
+  it('only touches images without alt when several are present', () => {
+    const input = '<p><img src="a.png"><img src="b.png" alt="B"></p>';
+    expect(ensureImageAlt(input)).toBe('<p><img src="a.png" alt=""><img src="b.png" alt="B"></p>');
+  });
+
+  it('is case-insensitive about an existing ALT attribute', () => {
+    expect(ensureImageAlt('<img src="a.png" ALT="x">')).toBe('<img src="a.png" ALT="x">');
+  });
+
+  it('is not fooled by an "alt" substring inside another attribute', () => {
+    expect(ensureImageAlt('<img src="a.png" data-salt="1">')).toBe('<img src="a.png" data-salt="1" alt="">');
+  });
+
+  it('leaves non-img content unchanged', () => {
+    expect(ensureImageAlt('<a href="x">link</a>')).toBe('<a href="x">link</a>');
+  });
+
+  it('returns an empty string unchanged', () => {
+    expect(ensureImageAlt('')).toBe('');
   });
 });

@@ -604,6 +604,36 @@ title: Test
       expect(result.html).toContain('alt="Photo"');
     });
 
+    it('should add a decorative empty alt to a raw <img> without alt', () => {
+      const input = `---
+title: Test
+---
+
+<img src="photo.jpg">
+`;
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+      const result = parser.parse(input);
+
+      // Manual raw <img> without alt must still get an alt="" (a11y). Applied late on the
+      // final HTML, so both markdown images and raw <img> are covered uniformly.
+      expect(result.html).toContain(`src="${baseUrl}photo.jpg"`);
+      expect(result.html).toContain('alt=""');
+    });
+
+    it('should not add a second alt to a raw <img> that already has one', () => {
+      const input = `---
+title: Test
+---
+
+<img src="photo.jpg" alt="Photo">
+`;
+      const parser = new JekyllMarkdownParser(baseUrl, linkBasePath);
+      const result = parser.parse(input);
+
+      expect(result.html).toContain('alt="Photo"');
+      expect(result.html).not.toContain('alt=""');
+    });
+
     it('should handle ./ prefix by stripping it', () => {
       const input = `---
 title: Test
