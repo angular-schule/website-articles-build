@@ -35,3 +35,19 @@ export function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+
+/**
+ * Ensure every <img> has an alt attribute.
+ *
+ * Images reach the HTML two ways: from Markdown (the renderer always emits an alt, even an
+ * empty one) and as manual raw <img> tags (which frequently lack alt). A missing alt makes
+ * screen readers announce the file name, so any <img> without an alt gets a decorative
+ * empty alt="". Images that already carry an alt (including alt="") are left untouched.
+ *
+ * Apply this LATE, on the final HTML, so both image sources are covered uniformly.
+ */
+export function ensureImageAlt(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (tag) =>
+    /\balt\s*=/i.test(tag) ? tag : tag.replace(/\s*(\/?)>$/, ' alt=""$1>'),
+  );
+}

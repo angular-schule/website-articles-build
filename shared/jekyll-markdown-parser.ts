@@ -4,7 +4,7 @@ import { Marked, Renderer, Tokens } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import { gfmHeadingId, getHeadingList, resetHeadings } from './gfm-heading-id';
 import hljs from 'highlight.js';
-import { escapeHtml } from './html.utils';
+import { escapeHtml, ensureImageAlt } from './html.utils';
 
 // Precompiled regexes for performance
 const PROTOCOL_REGEX = /^\w+:/;
@@ -322,7 +322,11 @@ export class JekyllMarkdownParser {
     const html = this.marked.parse(processedMarkdown) as string;
     const headingIds = getHeadingList().map(h => h.id);
     const withImages = this.transformRelativeImagePaths(html);
-    const finalHtml = this.transformRelativeLinks(withImages);
+    const withLinks = this.transformRelativeLinks(withImages);
+    // Late a11y pass on the FINAL html: images come both from Markdown (which already carries
+    // an alt via imageRenderer) and as manual raw <img> (which may lack alt). Adding a
+    // decorative alt="" here covers both sources uniformly, after all other transforms ran.
+    const finalHtml = ensureImageAlt(withLinks);
     return { html: finalHtml, headingIds };
   }
 
