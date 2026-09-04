@@ -1,6 +1,6 @@
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { mkdirp, remove, writeJson } from 'fs-extra';
+import { copy, mkdirp, remove, writeJson } from 'fs-extra';
 
 import { BlogEntryFull } from './blog/blog.types';
 import { MaterialEntry } from './material/material.types';
@@ -14,6 +14,7 @@ import { publishStandardSite } from './standard-site/publish';
 const DIST_FOLDER = '../dist';
 const BLOG_FOLDER = '../blog';
 const MATERIAL_FOLDER = '../material';
+const REDIRECTS_FILE = '../redirects.json';
 const LIST_FILE = 'list.json';
 
 /** Apply default values for optional blog YAML fields */
@@ -63,6 +64,21 @@ async function buildMaterial(): Promise<MaterialEntry[]> {
   return materialList;
 }
 
+/**
+ * Serve the repository's redirect map next to the article data. The file maps a
+ * renamed entry folder to its current name; consumers resolve it themselves.
+ * Optional: a repository without renames has no such file.
+ */
+async function copyRedirects(): Promise<void> {
+  if (!existsSync(REDIRECTS_FILE)) {
+    console.log('No redirects.json found, skipping...');
+    return;
+  }
+
+  console.log('Copying redirects...');
+  await copy(REDIRECTS_FILE, path.join(DIST_FOLDER, path.basename(REDIRECTS_FILE)));
+}
+
 async function build(): Promise<void> {
   console.log('Initializing dist folder...');
   await remove(DIST_FOLDER);
@@ -70,6 +86,7 @@ async function build(): Promise<void> {
 
   const blogEntries = await buildBlog();
   const materialEntries = await buildMaterial();
+  await copyRedirects();
 
   // Validate all anchor links (warnings only, does not fail build)
   console.log('\nValidating anchor links...');
